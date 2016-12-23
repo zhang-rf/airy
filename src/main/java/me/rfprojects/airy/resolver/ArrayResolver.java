@@ -63,7 +63,7 @@ public class ArrayResolver extends ObjectResolver {
                     indexer = deepIterate(buffer, subArray, indexer, componentType);
             } else {
                 Object value = Array.get(array, i);
-                if (!isNull(value)) {
+                if (!isNull(value, componentType)) {
                     buffer.putUnsignedVarint(indexer);
                     if (!isPrimitive) {
                         Class<?> clazz = value.getClass();
