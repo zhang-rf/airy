@@ -113,7 +113,7 @@ public final class NioBuffer implements Comparable<NioBuffer> {
     }
 
     public NioBuffer putVarint(long value) {
-        return putUnsignedVarint((value << 1) ^ (value >> 63));
+        return putUnsignedVarint((value << 1) ^ (value >> (Long.SIZE - 1)));
     }
 
     public long getVarint() {

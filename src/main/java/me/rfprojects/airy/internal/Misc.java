@@ -10,7 +10,7 @@ import java.lang.reflect.Type;
 public class Misc {
 
     public static boolean isPrimitive(Class<?> type, ClassRegistry registry) {
-        return registry.isPrimitive(type) || type.isEnum() || type == String.class;
+        return type != null && (registry.isPrimitive(type) || type.isEnum() || type == String.class);
     }
 
     public static boolean isFieldSerializable(Field field) {
