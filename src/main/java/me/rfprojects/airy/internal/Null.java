@@ -1,31 +1,29 @@
 package me.rfprojects.airy.internal;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 public class Null {
 
-    private static final Map<Class<?>, Object> NULLS;
+    private static Map<Class<?>, Object> nullMap = new HashMap<>();
 
     static {
-        Map<Class<?>, Object> map = new HashMap<>();
-        map.put(boolean.class, false);
-        map.put(char.class, '0');
-        map.put(byte.class, (byte) 0);
-        map.put(short.class, (short) 0);
-        map.put(int.class, 0);
-        map.put(long.class, 0L);
-        map.put(float.class, 0.0F);
-        map.put(double.class, 0.0);
-        NULLS = Collections.unmodifiableMap(map);
+        nullMap.put(boolean.class, false);
+        nullMap.put(char.class, '0');
+        nullMap.put(byte.class, (byte) 0);
+        nullMap.put(short.class, (short) 0);
+        nullMap.put(int.class, 0);
+        nullMap.put(long.class, 0L);
+        nullMap.put(float.class, 0.0F);
+        nullMap.put(double.class, 0.0);
     }
 
-    public static boolean isNull(Object obj, Class<?> referenceType) {
-        return obj == null || obj.equals(get(referenceType));
+    @SuppressWarnings("unchecked")
+    public static <T> T get(Class<T> type) {
+        return (T) nullMap.get(type);
     }
 
-    public static Object get(Class<?> type) {
-        return NULLS.get(type);
+    public static boolean isNull(Object value, Class<?> type) {
+        return value == null || value.equals(get(type));
     }
 }

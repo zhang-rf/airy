@@ -2,67 +2,71 @@ package me.rfprojects.airy.serializer;
 
 import me.rfprojects.airy.core.NioBuffer;
 import me.rfprojects.airy.core.UnknownClassException;
+import me.rfprojects.airy.internal.Null;
+import me.rfprojects.airy.util.ThreadLocalInteger;
 import me.rfprojects.airy.util.ThreadLocalReference;
 
+import java.lang.ref.SoftReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static me.rfprojects.airy.internal.ClassUtil.readClass;
-import static me.rfprojects.airy.internal.ClassUtil.writeClassName;
-import static me.rfprojects.airy.internal.Misc.*;
-import static me.rfprojects.airy.internal.Null.isNull;
+import static me.rfprojects.airy.internal.Misc.getGenericTypes;
+import static me.rfprojects.airy.internal.Misc.isFieldSerializable;
 
 public class ConstClassSerializer extends AbstractSerializer {
 
     private static final Object PRESENT = new Object();
-    private ThreadLocalReference<Map<Object, Integer>> objectMapReference = new ThreadLocalReference<>(ThreadLocalReference.ReferenceType.SoftReference, IdentityHashMap.class);
-    private ThreadLocalReference<Map<Integer, Object>> addressMapReference = new ThreadLocalReference<>(ThreadLocalReference.ReferenceType.SoftReference, IdentityHashMap.class);
+    private ThreadLocalReference<Map<Object, Integer>> objectMapReference = new ThreadLocalReference<>(SoftReference.class, IdentityHashMap.class);
+    private ThreadLocalReference<Map<Integer, Object>> addressMapReference = new ThreadLocalReference<>(SoftReference.class, IdentityHashMap.class);
+    private ThreadLocalInteger serializingDepthLocal = new ThreadLocalInteger();
+    private ThreadLocalInteger deserializingDepthLocal = new ThreadLocalInteger();
 
     @Override
-    public void serialize(NioBuffer buffer, Object object, boolean writeClassName) {
-        objectMapReference.get().clear();
-        writeClassName(buffer, object.getClass(), getRegistry(), writeClassName);
-        serialize0(buffer, object, null);
-    }
-
-    private void serialize0(NioBuffer buffer, Object object, Class<?> referenceType, Type... genericTypes) {
-        if (referenceType != null && !isPrimitive(referenceType, getRegistry())) {
-            Class<?> objectClass = object.getClass();
-            writeClassName(buffer, objectClass, getRegistry(), referenceType != objectClass);
+    public void serialize(NioBuffer buffer, Object object, boolean writeClass) {
+        try {
+            serializingDepthLocal.incrementAndGet();
+            if (writeClass)
+                getRegistry().writeClass(buffer, object.getClass());
+            else if (serializingDepthLocal.get() == 1)
+                getRegistry().writeClass(buffer, null);
+            if (!getResolverChain().writeObject(buffer, object, null))
+                writeObject(buffer, object, false);
+        } finally {
+            if (serializingDepthLocal.decrementAndGet() == 0)
+                objectMapReference.get().clear();
         }
-        if (!getResolverChain().writeObject(buffer, object, referenceType, genericTypes))
-            writeObject(buffer, object);
     }
 
-    private void writeObject(NioBuffer buffer, Object object) {
+    private void writeObject(NioBuffer buffer, Object object, boolean writeClass) {
         try {
             Map<Object, Integer> objectMap = objectMapReference.get();
             objectMap.put(object, buffer.position());
 
+            Class<?> type = object.getClass();
+            if (writeClass)
+                getRegistry().writeClass(buffer, type);
             buffer.mark().skip(4);
             int baseAddress = buffer.position();
 
-            Class<?> objectClass = object.getClass();
             List<Integer> addressList = null;
             do {
-                Field[] fields = objectClass.getDeclaredFields();
+                Field[] fields = type.getDeclaredFields();
                 if (addressList == null)
                     addressList = new ArrayList<>(Math.max(fields.length, 10));
+
                 for (Field field : fields) {
                     addressList.add(0);
                     if (!isFieldSerializable(field))
                         continue;
-
                     if (!field.isAccessible())
                         field.setAccessible(true);
                     Class<?> referenceType = field.getType();
                     Object value = field.get(object);
-                    if (isNull(value, referenceType))
+                    if (Null.isNull(value, referenceType))
                         continue;
 
                     if (objectMap.containsKey(value))
@@ -71,14 +75,18 @@ public class ConstClassSerializer extends AbstractSerializer {
                         int address = buffer.position();
                         objectMap.put(value, address);
                         addressList.set(addressList.size() - 1, address);
-                        serialize0(buffer, value, referenceType, getGenericTypes(field.getGenericType()));
+
+                        Class<?> valueType = value.getClass();
+                        if (valueType != referenceType && getRegistry().isPrimitive(valueType))
+                            getRegistry().writeClass(buffer, valueType);
+                        if (!getResolverChain().writeObject(buffer, object, referenceType, getGenericTypes(field.getGenericType())))
+                            writeObject(buffer, object, valueType != referenceType);
                     }
                 }
-            } while ((objectClass = objectClass.getSuperclass()) != Object.class);
+            } while ((type = type.getSuperclass()) != Object.class);
 
             int headerAddress = buffer.position();
             buffer.reset().unmark().asByteBuffer().putInt(headerAddress).position(headerAddress);
-
             for (int address : addressList) {
                 if (address == 0)
                     buffer.putUnsignedVarint(0);
@@ -94,24 +102,24 @@ public class ConstClassSerializer extends AbstractSerializer {
 
     @SuppressWarnings("unchecked")
     @Override
-    public <T> T deserialize(NioBuffer buffer, Class<T> clazz) {
-        addressMapReference.get().clear();
-        if (isPrimitive(clazz, getRegistry()))
-            clazz = (Class<T>) readClass(buffer, clazz, getRegistry());
-        return (T) deserialize0(buffer, clazz);
-    }
-
-    private Object deserialize0(NioBuffer buffer, Class<?> referenceType, Type... genericTypes) {
-        if (!isPrimitive(referenceType, getRegistry()))
-            if ((referenceType = readClass(buffer, referenceType, getRegistry())) == null)
+    public <T> T deserialize(NioBuffer buffer, Class<T> type) {
+        try {
+            deserializingDepthLocal.incrementAndGet();
+            if (deserializingDepthLocal.get() == 1)
+                type = (Class<T>) getRegistry().readClass(buffer, type);
+            if (type == null)
                 throw new UnknownClassException();
-        Object instance = getResolverChain().readObject(buffer, referenceType, genericTypes);
-        if (instance == null)
-            instance = readObject(buffer, referenceType);
-        return instance;
+            Object instance = getResolverChain().readObject(buffer, type);
+            if (instance == null)
+                instance = readObject(buffer, type);
+            return (T) instance;
+        } finally {
+            if (deserializingDepthLocal.decrementAndGet() == 0)
+                addressMapReference.get().clear();
+        }
     }
 
-    private Object readObject(NioBuffer buffer, Class<?> objectClass) {
+    private Object readObject(NioBuffer buffer, Class<?> type) {
         try {
             Map<Integer, Object> addressMap = addressMapReference.get();
             if (!addressMap.containsKey(buffer.position()))
@@ -121,19 +129,20 @@ public class ConstClassSerializer extends AbstractSerializer {
             int baseAddress = buffer.position();
             buffer.position(headerAddress);
 
-            Constructor<?> defaultConstructor = objectClass.getDeclaredConstructor();
+            Constructor<?> defaultConstructor = type.getDeclaredConstructor();
             defaultConstructor.setAccessible(true);
             Object instance = defaultConstructor.newInstance();
 
             List<Field> fieldList = null;
             do {
-                Field[] fields = objectClass.getDeclaredFields();
+                Field[] fields = type.getDeclaredFields();
                 if (fieldList == null)
                     fieldList = new ArrayList<>(Math.max(fields.length, 10));
-                for (Field field : objectClass.getDeclaredFields())
+
+                for (Field field : type.getDeclaredFields())
                     if (isFieldSerializable(field))
                         fieldList.add(field);
-            } while ((objectClass = objectClass.getSuperclass()) != Object.class);
+            } while ((type = type.getSuperclass()) != Object.class);
 
             for (Field field : fieldList) {
                 int offset = (int) buffer.getUnsignedVarint() - 1;
@@ -148,7 +157,12 @@ public class ConstClassSerializer extends AbstractSerializer {
                     field.set(instance, value == PRESENT ? instance : value);
                 } else {
                     buffer.mark().position(address);
-                    Object value = deserialize0(buffer, field.getType(), getGenericTypes(field.getGenericType()));
+                    Class<?> referenceType = field.getType();
+                    if (!getRegistry().isPrimitive(referenceType))
+                        referenceType = getRegistry().readClass(buffer, referenceType);
+                    Object value = getResolverChain().readObject(buffer, referenceType, getGenericTypes(field.getGenericType()));
+                    if (instance == null)
+                        instance = readObject(buffer, referenceType);
                     addressMap.put(address, value);
                     field.set(instance, value);
                     buffer.reset().unmark();

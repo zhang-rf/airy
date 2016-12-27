@@ -1,14 +1,11 @@
 package me.rfprojects.airy.util;
 
-import java.lang.ref.PhantomReference;
 import java.lang.ref.Reference;
-import java.lang.ref.SoftReference;
-import java.lang.ref.WeakReference;
 
 public class ThreadLocalReference<T> {
 
-    private ReferenceType referenceType;
-    private Class<?> valueClass;
+    private Class<? extends Reference> referenceType;
+    private Class<?> valueType;
     private ThreadLocal<Reference<T>> threadLocalReference = new ThreadLocal<Reference<T>>() {
 
         @Override
@@ -20,30 +17,22 @@ public class ThreadLocalReference<T> {
     protected ThreadLocalReference() {
     }
 
-    public ThreadLocalReference(ReferenceType referenceType, Class<?> valueClass) {
+    public ThreadLocalReference(Class<? extends Reference> referenceType, Class<?> valueType) {
         this.referenceType = referenceType;
-        this.valueClass = valueClass;
+        this.valueType = valueType;
     }
 
     @SuppressWarnings("unchecked")
     protected Reference<T> initialValue() {
-        if (referenceType == null || valueClass == null)
+        if (referenceType == null || valueType == null)
             throw new AbstractMethodError();
         try {
-            switch (referenceType) {
-                case SoftReference:
-                    return SoftReference.class.getConstructor(Object.class).newInstance(valueClass.newInstance());
-                case WeakReference:
-                    return WeakReference.class.getConstructor(Object.class).newInstance(valueClass.newInstance());
-                case PhantomReference:
-                    return PhantomReference.class.getConstructor(Object.class).newInstance(valueClass.newInstance());
-            }
+            return referenceType.getConstructor(Object.class).newInstance(valueType.newInstance());
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        return null;
     }
 
     public T get() {
@@ -61,11 +50,5 @@ public class ThreadLocalReference<T> {
 
     public void remove() {
         threadLocalReference.remove();
-    }
-
-    public enum ReferenceType {
-        SoftReference,
-        WeakReference,
-        PhantomReference
     }
 }

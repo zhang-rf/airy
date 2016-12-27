@@ -10,7 +10,7 @@ public interface Serializer {
 
     ResolverChain getResolverChain();
 
-    void serialize(NioBuffer buffer, Object object, boolean writeClassName);
+    void serialize(NioBuffer buffer, Object object, boolean writeClass);
 
-    <T> T deserialize(NioBuffer buffer, Class<T> clazz);
+    <T> T deserialize(NioBuffer buffer, Class<T> type);
 }

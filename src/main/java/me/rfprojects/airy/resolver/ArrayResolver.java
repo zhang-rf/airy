@@ -6,8 +6,6 @@ import me.rfprojects.airy.serializer.Serializer;
 import java.lang.reflect.Array;
 import java.lang.reflect.Type;
 
-import static me.rfprojects.airy.internal.ClassUtil.readClass;
-import static me.rfprojects.airy.internal.ClassUtil.writeClassName;
 import static me.rfprojects.airy.internal.Misc.isPrimitive;
 import static me.rfprojects.airy.internal.Null.isNull;
 
@@ -27,7 +25,7 @@ public class ArrayResolver extends ObjectResolver {
         Class<?> clazz = obj.getClass();
         if (skipCheck() || clazz.isArray()) {
             Class<?> componentType = getComponentType(clazz);
-            writeClassName(buffer, componentType, serializer.getRegistry(), clazz != referenceType);
+            serializer.getRegistry().writeClass(buffer, clazz != referenceType ? componentType : null);
 
             Object array = obj;
             do {
@@ -67,7 +65,7 @@ public class ArrayResolver extends ObjectResolver {
                     buffer.putUnsignedVarint(indexer);
                     if (!isPrimitive) {
                         Class<?> clazz = value.getClass();
-                        writeClassName(buffer, value.getClass(), serializer.getRegistry(), clazz != componentType);
+                        serializer.getRegistry().writeClass(buffer, clazz != componentType ? clazz : null);
                     }
                     serializer.serialize(buffer, value, false);
                 }
@@ -89,7 +87,7 @@ public class ArrayResolver extends ObjectResolver {
         while ((componentType = componentType.getComponentType()).isArray())
             dimension++;
 
-        componentType = readClass(buffer, componentType, serializer.getRegistry());
+        componentType = serializer.getRegistry().readClass(buffer, componentType);
         int[] dimensions = new int[dimension];
         for (int i = 0; i < dimension; i++)
             dimensions[i] = (int) buffer.getUnsignedVarint();
@@ -98,7 +96,7 @@ public class ArrayResolver extends ObjectResolver {
 
         int indexer;
         while ((indexer = (int) buffer.getUnsignedVarint()) != 0) {
-            Class<?> clazz = isPrimitive ? componentType : readClass(buffer, componentType, serializer.getRegistry());
+            Class<?> clazz = isPrimitive ? componentType : serializer.getRegistry().readClass(buffer, componentType);
             setArray(array, dimensions, indexer, serializer.deserialize(buffer, clazz));
         }
         return array;
