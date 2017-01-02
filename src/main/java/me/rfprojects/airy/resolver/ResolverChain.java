@@ -8,48 +8,54 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-public class ResolverChain {
+public class ResolverChain implements Resolver {
 
-    private List<ObjectResolver> resolvers = new ArrayList<>();
-    private ConcurrentMap<Class<?>, ObjectResolver> resolverMap = new ConcurrentHashMap<>();
+    private List<Resolver> resolverList = new ArrayList<>();
+    private ConcurrentMap<Class<?>, Resolver> resolverMap = new ConcurrentHashMap<>();
 
-    public void addResolver(ObjectResolver resolver) {
-        resolvers.add(resolver);
+    public void addResolver(Resolver resolver) {
+        resolverList.add(resolver);
+        resolverMap.clear();
     }
 
-    public boolean writeObject(NioBuffer buffer, Object obj, Class<?> referenceType, Type... genericTypes) {
-        Class<?> clazz = obj.getClass();
-        ObjectResolver mappedResolver = resolverMap.get(clazz);
-        if (mappedResolver != null) {
-            mappedResolver.skipCheck(true);
-            return mappedResolver.writeObject(buffer, obj, referenceType, genericTypes);
-        }
-
-        for (ObjectResolver resolver : resolvers) {
-            resolver.skipCheck(false);
-            if (resolver.writeObject(buffer, obj, referenceType, genericTypes)) {
-                resolverMap.put(clazz, resolver);
-                return true;
-            }
-        }
+    @Override
+    public boolean checkType(Class<?> type) {
         return false;
     }
 
-    public Object readObject(NioBuffer buffer, Class<?> referenceType, Type... genericTypes) {
-        ObjectResolver mappedResolver = resolverMap.get(referenceType);
-        if (mappedResolver != null) {
-            mappedResolver.skipCheck(true);
-            return mappedResolver.readObject(buffer, referenceType, genericTypes);
-        }
-
-        for (ObjectResolver resolver : resolvers) {
-            resolver.skipCheck(false);
-            Object instance = resolver.readObject(buffer, referenceType, genericTypes);
-            if (instance != null) {
-                resolverMap.put(referenceType, resolver);
-                return instance;
+    @Override
+    public boolean writeObject(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
+        Resolver mappedResolver = resolverMap.get(reference);
+        if (mappedResolver != null)
+            return mappedResolver != this && mappedResolver.writeObject(buffer, object, reference);
+        else {
+            for (Resolver resolver : resolverList) {
+                if (resolver.checkType(reference)) {
+                    resolver.writeObject(buffer, object, reference);
+                    resolverMap.put(reference, resolver);
+                    return true;
+                }
             }
+            resolverMap.put(reference, this);
+            return false;
         }
-        return null;
+    }
+
+    @Override
+    public Object readObject(NioBuffer buffer, Class<?> reference, Type... generics) {
+        Resolver mappedResolver = resolverMap.get(reference);
+        if (mappedResolver != null)
+            return mappedResolver != this ? mappedResolver.readObject(buffer, reference) : null;
+        else {
+            for (Resolver resolver : resolverList) {
+                if (resolver.checkType(reference)) {
+                    Object instance = resolver.readObject(buffer, reference);
+                    resolverMap.put(reference, resolver);
+                    return instance;
+                }
+            }
+            resolverMap.put(reference, this);
+            return null;
+        }
     }
 }

@@ -2,9 +2,8 @@ package me.rfprojects.airy;
 
 import me.rfprojects.airy.core.NioBuffer;
 import me.rfprojects.airy.resolver.EnumResolver;
-import me.rfprojects.airy.resolver.PrimitiveResolver;
 import me.rfprojects.airy.resolver.StringResolver;
-import me.rfprojects.airy.serializer.ConstClassSerializer;
+import me.rfprojects.airy.serializer.ImmortalSerializer;
 import me.rfprojects.airy.serializer.Serializer;
 import org.junit.Test;
 
@@ -14,38 +13,49 @@ public class MainTest {
 
     @Test
     public void test() {
-        Serializer serializer = new ConstClassSerializer();
-        serializer.getResolverChain().addResolver(new PrimitiveResolver(serializer));
-        serializer.getResolverChain().addResolver(new EnumResolver(serializer));
-        serializer.getResolverChain().addResolver(new StringResolver(serializer));
+        Serializer serializer = new ImmortalSerializer();
+        serializer.addResolver(new EnumResolver());
+        serializer.addResolver(new StringResolver());
         NioBuffer buffer = NioBuffer.allocate(1024);
-        serializer.serialize(buffer, 63, false);
+        serializer.serialize(buffer, new Bean(new Bean.InnerBean(63)), false);
         byte[] bytes = new byte[buffer.position()];
         buffer.rewind().asByteBuffer().get(bytes);
         System.out.println(Arrays.toString(bytes));
         System.out.println(new String(bytes));
 
-        System.out.println(serializer.deserialize(buffer.clear(), Integer.class));
+        System.out.println(serializer.deserialize(buffer.clear(), Bean.class));
     }
 }
 
 class Bean {
 
-    private int var1;
+    private Object var1;
 
     Bean() {
     }
 
-    Bean(int var1) {
+    Bean(Object var1) {
         this.var1 = var1;
     }
 
     public int getVar1() {
-        return var1;
+        return (int) var1;
     }
 
     public Bean setVar1(int var1) {
         this.var1 = var1;
         return this;
+    }
+
+    static class InnerBean {
+
+        private Object var1;
+
+        public InnerBean() {
+        }
+
+        InnerBean(Object var1) {
+            this.var1 = var1;
+        }
     }
 }

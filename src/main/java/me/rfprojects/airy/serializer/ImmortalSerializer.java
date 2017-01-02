@@ -3,58 +3,56 @@ package me.rfprojects.airy.serializer;
 import me.rfprojects.airy.core.NioBuffer;
 import me.rfprojects.airy.core.UnknownClassException;
 import me.rfprojects.airy.internal.Null;
-import me.rfprojects.airy.util.ThreadLocalInteger;
-import me.rfprojects.airy.util.ThreadLocalReference;
 
-import java.lang.ref.SoftReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static me.rfprojects.airy.internal.Misc.getGenericTypes;
 import static me.rfprojects.airy.internal.Misc.isFieldSerializable;
 
-public class ConstClassSerializer extends AbstractSerializer {
-
-    private static final Object PRESENT = new Object();
-    private ThreadLocalReference<Map<Object, Integer>> objectMapReference = new ThreadLocalReference<>(SoftReference.class, IdentityHashMap.class);
-    private ThreadLocalReference<Map<Integer, Object>> addressMapReference = new ThreadLocalReference<>(SoftReference.class, IdentityHashMap.class);
-    private ThreadLocalInteger serializingDepthLocal = new ThreadLocalInteger();
-    private ThreadLocalInteger deserializingDepthLocal = new ThreadLocalInteger();
+public class ImmortalSerializer extends ReferencedSerializer {
 
     @Override
     public void serialize(NioBuffer buffer, Object object, boolean writeClass) {
         try {
-            serializingDepthLocal.incrementAndGet();
-            if (writeClass)
-                getRegistry().writeClass(buffer, object.getClass());
-            else if (serializingDepthLocal.get() == 1)
-                getRegistry().writeClass(buffer, null);
-            if (!getResolverChain().writeObject(buffer, object, null))
-                writeObject(buffer, object, false);
+            if (serializingDepth().getAndIncrement() == 0) {
+                getRegistry().writeClass(buffer, writeClass ? object.getClass() : null);
+                if (!resolverChain().writeObject(buffer, object, object.getClass()))
+                    writeObject(buffer, object);
+            } else
+                internalSerialize(buffer, object, object.getClass());
         } finally {
-            if (serializingDepthLocal.decrementAndGet() == 0)
-                objectMapReference.get().clear();
+            if (serializingDepth().decrementAndGet() == 0)
+                objectMap().clear();
         }
     }
 
-    private void writeObject(NioBuffer buffer, Object object, boolean writeClass) {
+    private void internalSerialize(NioBuffer buffer, Object object, Class<?> referenceType, Type... genericTypes) {
+        Class<?> type = object.getClass();
+        if (referenceType == Object.class)
+            getRegistry().writeClass(buffer, type);
+        if (!resolverChain().writeObject(buffer, object, referenceType, genericTypes)) {
+            if (referenceType != Object.class)
+                getRegistry().writeClass(buffer, type != referenceType ? type : null);
+            writeObject(buffer, object);
+        }
+    }
+
+    private void writeObject(NioBuffer buffer, Object object) {
         try {
-            Map<Object, Integer> objectMap = objectMapReference.get();
+            Map<Object, Integer> objectMap = objectMap();
             objectMap.put(object, buffer.position());
 
-            Class<?> type = object.getClass();
-            if (writeClass)
-                getRegistry().writeClass(buffer, type);
             buffer.mark().skip(4);
             int baseAddress = buffer.position();
-
+            Class<?> superType = object.getClass();
             List<Integer> addressList = null;
             do {
-                Field[] fields = type.getDeclaredFields();
+                Field[] fields = superType.getDeclaredFields();
                 if (addressList == null)
                     addressList = new ArrayList<>(Math.max(fields.length, 10));
 
@@ -75,15 +73,10 @@ public class ConstClassSerializer extends AbstractSerializer {
                         int address = buffer.position();
                         objectMap.put(value, address);
                         addressList.set(addressList.size() - 1, address);
-
-                        Class<?> valueType = value.getClass();
-                        if (valueType != referenceType && getRegistry().isPrimitive(valueType))
-                            getRegistry().writeClass(buffer, valueType);
-                        if (!getResolverChain().writeObject(buffer, object, referenceType, getGenericTypes(field.getGenericType())))
-                            writeObject(buffer, object, valueType != referenceType);
+                        internalSerialize(buffer, value, referenceType, getGenericTypes(field.getGenericType()));
                     }
                 }
-            } while ((type = type.getSuperclass()) != Object.class);
+            } while ((superType = superType.getSuperclass()) != Object.class);
 
             int headerAddress = buffer.position();
             buffer.reset().unmark().asByteBuffer().putInt(headerAddress).position(headerAddress);
@@ -104,24 +97,40 @@ public class ConstClassSerializer extends AbstractSerializer {
     @Override
     public <T> T deserialize(NioBuffer buffer, Class<T> type) {
         try {
-            deserializingDepthLocal.incrementAndGet();
-            if (deserializingDepthLocal.get() == 1)
+            if (deserializingDepth().getAndIncrement() == 0) {
                 type = (Class<T>) getRegistry().readClass(buffer, type);
-            if (type == null)
-                throw new UnknownClassException();
-            Object instance = getResolverChain().readObject(buffer, type);
-            if (instance == null)
-                instance = readObject(buffer, type);
-            return (T) instance;
+                return (T) internalDeserialize(false, buffer, type);
+            } else
+                return (T) internalDeserialize(buffer, type);
         } finally {
-            if (deserializingDepthLocal.decrementAndGet() == 0)
-                addressMapReference.get().clear();
+            if (deserializingDepth().decrementAndGet() == 0)
+                addressMap().clear();
         }
+    }
+
+    private Object internalDeserialize(NioBuffer buffer, Class<?> referenceType, Type... genericTypes) {
+        return internalDeserialize(true, buffer, referenceType, genericTypes);
+    }
+
+    private Object internalDeserialize(boolean readClass, NioBuffer buffer, Class<?> referenceType, Type... genericTypes) {
+        if (readClass && referenceType == Object.class) {
+            readClass = false;
+            referenceType = getRegistry().readClass(buffer, null);
+        }
+        if (referenceType == null)
+            throw new UnknownClassException();
+        Object instance = resolverChain().readObject(buffer, referenceType, genericTypes);
+        if (instance == null) {
+            if (readClass && referenceType != Object.class)
+                referenceType = getRegistry().readClass(buffer, referenceType);
+            instance = readObject(buffer, referenceType);
+        }
+        return instance;
     }
 
     private Object readObject(NioBuffer buffer, Class<?> type) {
         try {
-            Map<Integer, Object> addressMap = addressMapReference.get();
+            Map<Integer, Object> addressMap = addressMap();
             if (!addressMap.containsKey(buffer.position()))
                 addressMap.put(buffer.position(), PRESENT);
 
@@ -130,7 +139,8 @@ public class ConstClassSerializer extends AbstractSerializer {
             buffer.position(headerAddress);
 
             Constructor<?> defaultConstructor = type.getDeclaredConstructor();
-            defaultConstructor.setAccessible(true);
+            if (!defaultConstructor.isAccessible())
+                defaultConstructor.setAccessible(true);
             Object instance = defaultConstructor.newInstance();
 
             List<Field> fieldList = null;
@@ -157,14 +167,9 @@ public class ConstClassSerializer extends AbstractSerializer {
                     field.set(instance, value == PRESENT ? instance : value);
                 } else {
                     buffer.mark().position(address);
-                    Class<?> referenceType = field.getType();
-                    if (!getRegistry().isPrimitive(referenceType))
-                        referenceType = getRegistry().readClass(buffer, referenceType);
-                    Object value = getResolverChain().readObject(buffer, referenceType, getGenericTypes(field.getGenericType()));
-                    if (instance == null)
-                        instance = readObject(buffer, referenceType);
-                    addressMap.put(address, value);
+                    Object value = internalDeserialize(buffer, field.getType(), getGenericTypes(field.getGenericType()));
                     field.set(instance, value);
+                    addressMap.put(address, value);
                     buffer.reset().unmark();
                 }
             }
