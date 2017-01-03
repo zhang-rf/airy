@@ -1,13 +1,17 @@
 package me.rfprojects.airy.serializer;
 
 import me.rfprojects.airy.core.ClassRegistry;
-import me.rfprojects.airy.resolver.Resolver;
-import me.rfprojects.airy.resolver.ResolverChain;
+import me.rfprojects.airy.resolver.chain.CachedResolverChain;
+import me.rfprojects.airy.resolver.chain.ResolverChain;
 import me.rfprojects.airy.resolver.primitive.*;
 import me.rfprojects.airy.util.ThreadLocalInteger;
 import me.rfprojects.airy.util.ThreadLocalReference;
 
 import java.lang.ref.SoftReference;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
@@ -16,7 +20,7 @@ public abstract class ReferencedSerializer implements Serializer {
     protected static final Object PRESENT = new Object();
 
     private ClassRegistry registry = new ClassRegistry();
-    private ResolverChain resolverChain = new ResolverChain();
+    private ResolverChain resolverChain = new CachedResolverChain();
 
     private ThreadLocalReference<Map<Object, Integer>> objectMapReference = new ThreadLocalReference<>(SoftReference.class, IdentityHashMap.class);
     private ThreadLocalReference<Map<Integer, Object>> addressMapReference = new ThreadLocalReference<>(SoftReference.class, IdentityHashMap.class);
@@ -24,19 +28,14 @@ public abstract class ReferencedSerializer implements Serializer {
     private ThreadLocalInteger deserializingDepthLocal = new ThreadLocalInteger();
 
     protected ReferencedSerializer() {
-        addResolver(new BooleanResolver());
-        addResolver(new CharacterResolver());
-        addResolver(new ByteResolver());
-        addResolver(new ShortResolver());
-        addResolver(new IntegerResolver());
-        addResolver(new LongResolver());
-        addResolver(new FloatResolver());
-        addResolver(new DoubleResolver());
-    }
-
-    @Override
-    public void addResolver(Resolver resolver) {
-        resolverChain.addResolver(resolver);
+        resolverChain.addResolver(new BooleanResolver());
+        resolverChain.addResolver(new CharacterResolver());
+        resolverChain.addResolver(new ByteResolver());
+        resolverChain.addResolver(new ShortResolver());
+        resolverChain.addResolver(new IntegerResolver());
+        resolverChain.addResolver(new LongResolver());
+        resolverChain.addResolver(new FloatResolver());
+        resolverChain.addResolver(new DoubleResolver());
     }
 
     @Override
@@ -44,7 +43,8 @@ public abstract class ReferencedSerializer implements Serializer {
         return registry;
     }
 
-    protected ResolverChain resolverChain() {
+    @Override
+    public ResolverChain getResolverChain() {
         return resolverChain;
     }
 
@@ -62,5 +62,14 @@ public abstract class ReferencedSerializer implements Serializer {
 
     protected ThreadLocalInteger deserializingDepth() {
         return deserializingDepthLocal;
+    }
+
+    protected boolean isFieldSerializable(Field field) {
+        int modifiers = field.getModifiers();
+        return !(Modifier.isStatic(modifiers) || Modifier.isFinal(modifiers) || Modifier.isTransient(modifiers));
+    }
+
+    protected Type[] getGenericTypes(Type parameterizedType) {
+        return parameterizedType instanceof ParameterizedType ? ((ParameterizedType) parameterizedType).getActualTypeArguments() : new Type[0];
     }
 }

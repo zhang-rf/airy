@@ -2,13 +2,13 @@ package me.rfprojects.airy.serializer;
 
 import me.rfprojects.airy.core.ClassRegistry;
 import me.rfprojects.airy.core.NioBuffer;
-import me.rfprojects.airy.resolver.Resolver;
+import me.rfprojects.airy.resolver.chain.ResolverChain;
 
 public interface Serializer {
 
-    void addResolver(Resolver resolver);
-
     ClassRegistry getRegistry();
+
+    ResolverChain getResolverChain();
 
     void serialize(NioBuffer buffer, Object object, boolean writeClass);
 

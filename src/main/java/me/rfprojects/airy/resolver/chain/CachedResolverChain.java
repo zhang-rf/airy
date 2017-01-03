@@ -1,6 +1,7 @@
-package me.rfprojects.airy.resolver;
+package me.rfprojects.airy.resolver.chain;
 
 import me.rfprojects.airy.core.NioBuffer;
+import me.rfprojects.airy.resolver.Resolver;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -8,7 +9,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-public class ResolverChain implements Resolver {
+public class CachedResolverChain implements ResolverChain {
 
     private List<Resolver> resolverList = new ArrayList<>();
     private ConcurrentMap<Class<?>, Resolver> resolverMap = new ConcurrentHashMap<>();
