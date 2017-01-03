@@ -3,6 +3,7 @@ package me.rfprojects.airy.serializer;
 import me.rfprojects.airy.core.NioBuffer;
 import me.rfprojects.airy.core.UnknownClassException;
 import me.rfprojects.airy.internal.Null;
+import me.rfprojects.airy.resolver.Resolver;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -12,7 +13,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ImmortalSerializer extends ReferencedSerializer implements StructedSerializer {
+public class OrderedSerializer extends ReferencedSerializer implements StructedSerializer, Resolver {
+
+    @Override
+    public boolean checkType(Class<?> type) {
+        return false;
+    }
 
     @Override
     public void serialize(NioBuffer buffer, Object object, boolean writeClass) {
@@ -22,22 +28,24 @@ public class ImmortalSerializer extends ReferencedSerializer implements Structed
                 if (!getResolverChain().writeObject(buffer, object, object.getClass()))
                     writeObject(buffer, object);
             } else
-                internalSerialize(buffer, object, object.getClass());
+                writeObject(buffer, object, object.getClass());
         } finally {
             if (serializingDepth().decrementAndGet() == 0)
                 objectMap().clear();
         }
     }
 
-    private void internalSerialize(NioBuffer buffer, Object object, Class<?> referenceType, Type... genericTypes) {
+    @Override
+    public boolean writeObject(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         Class<?> type = object.getClass();
-        if (referenceType == Object.class)
+        if (reference == Object.class)
             getRegistry().writeClass(buffer, type);
-        if (!getResolverChain().writeObject(buffer, object, referenceType != Object.class ? referenceType : object.getClass(), genericTypes)) {
-            if (referenceType != Object.class)
-                getRegistry().writeClass(buffer, type != referenceType ? type : null);
+        if (!getResolverChain().writeObject(buffer, object, reference != Object.class ? reference : object.getClass(), generics)) {
+            if (reference != Object.class)
+                getRegistry().writeClass(buffer, type != reference ? type : null);
             writeObject(buffer, object);
         }
+        return true;
     }
 
     private void writeObject(NioBuffer buffer, Object object) {
@@ -71,7 +79,7 @@ public class ImmortalSerializer extends ReferencedSerializer implements Structed
                         int address = buffer.position();
                         objectMap.put(value, address);
                         addressList.set(addressList.size() - 1, address);
-                        internalSerialize(buffer, value, referenceType, getGenericTypes(field.getGenericType()));
+                        writeObject(buffer, value, referenceType, getGenericTypes(field.getGenericType()));
                     }
                 }
             } while ((superType = superType.getSuperclass()) != Object.class);
@@ -97,31 +105,34 @@ public class ImmortalSerializer extends ReferencedSerializer implements Structed
         try {
             if (deserializingDepth().getAndIncrement() == 0) {
                 type = (Class<T>) getRegistry().readClass(buffer, type);
-                return (T) internalDeserialize(false, buffer, type);
+                if (type == null)
+                    throw new UnknownClassException();
+                Object instance = getResolverChain().readObject(buffer, type);
+                if (instance == null)
+                    instance = readObject(buffer, type);
+                return (T) instance;
             } else
-                return (T) internalDeserialize(buffer, type);
+                return (T) readObject(buffer, type);
         } finally {
             if (deserializingDepth().decrementAndGet() == 0)
                 addressMap().clear();
         }
     }
 
-    private Object internalDeserialize(NioBuffer buffer, Class<?> referenceType, Type... genericTypes) {
-        return internalDeserialize(true, buffer, referenceType, genericTypes);
-    }
-
-    private Object internalDeserialize(boolean readClass, NioBuffer buffer, Class<?> referenceType, Type... genericTypes) {
-        if (readClass && referenceType == Object.class) {
-            readClass = false;
-            referenceType = getRegistry().readClass(buffer, null);
+    @Override
+    public Object readObject(NioBuffer buffer, Class<?> reference, Type... generics) {
+        boolean classRead = false;
+        if (reference == Object.class) {
+            reference = getRegistry().readClass(buffer, null);
+            classRead = true;
         }
-        if (referenceType == null)
+        if (reference == null)
             throw new UnknownClassException();
-        Object instance = getResolverChain().readObject(buffer, referenceType, genericTypes);
+        Object instance = getResolverChain().readObject(buffer, reference, generics);
         if (instance == null) {
-            if (readClass && referenceType != Object.class)
-                referenceType = getRegistry().readClass(buffer, referenceType);
-            instance = readObject(buffer, referenceType);
+            if (!classRead)
+                reference = getRegistry().readClass(buffer, reference);
+            instance = readObject(buffer, reference);
         }
         return instance;
     }
@@ -165,7 +176,7 @@ public class ImmortalSerializer extends ReferencedSerializer implements Structed
                     field.set(instance, value == PRESENT ? instance : value);
                 } else {
                     buffer.mark().position(address);
-                    Object value = internalDeserialize(buffer, field.getType(), getGenericTypes(field.getGenericType()));
+                    Object value = readObject(buffer, field.getType(), getGenericTypes(field.getGenericType()));
                     field.set(instance, value);
                     addressMap.put(address, value);
                     buffer.reset().unmark();
@@ -181,7 +192,7 @@ public class ImmortalSerializer extends ReferencedSerializer implements Structed
 
     @SuppressWarnings("Duplicates")
     @Override
-    public Map<String, Integer> getStructHeader(NioBuffer buffer, Class<?> type) {
+    public Map<String, Integer> getStructMap(NioBuffer buffer, Class<?> type) {
         int headerAddress = buffer.asByteBuffer().getInt();
         int baseAddress = buffer.position();
         buffer.position(headerAddress);

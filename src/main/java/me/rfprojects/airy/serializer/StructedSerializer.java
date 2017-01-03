@@ -6,5 +6,5 @@ import java.util.Map;
 
 public interface StructedSerializer extends Serializer {
 
-    Map<String, Integer> getStructHeader(NioBuffer buffer, Class<?> type);
+    Map<String, Integer> getStructMap(NioBuffer buffer, Class<?> type);
 }
