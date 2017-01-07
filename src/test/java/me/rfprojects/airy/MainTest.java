@@ -1,16 +1,16 @@
 package me.rfprojects.airy;
 
 import me.rfprojects.airy.core.NioBuffer;
-import me.rfprojects.airy.resolver.CollectionResolver;
 import me.rfprojects.airy.resolver.EnumResolver;
+import me.rfprojects.airy.resolver.MapResolver;
 import me.rfprojects.airy.resolver.StringResolver;
 import me.rfprojects.airy.serializer.OrderedSerializer;
 import me.rfprojects.airy.serializer.Serializer;
 import org.junit.Test;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainTest {
 
@@ -19,9 +19,12 @@ public class MainTest {
         Serializer serializer = new OrderedSerializer();
         serializer.getResolverChain().addResolver(new EnumResolver());
         serializer.getResolverChain().addResolver(new StringResolver());
-        serializer.getResolverChain().addResolver(new CollectionResolver(serializer));
+        serializer.getResolverChain().addResolver(new MapResolver(serializer));
         NioBuffer buffer = NioBuffer.allocate(1024);
-        serializer.serialize(buffer, new Bean(new ArrayList<>(Collections.singletonList(63))), false);
+        Map map = new HashMap<>();
+        map.put(63, null);
+        map.put(62, 62);
+        serializer.serialize(buffer, new Bean(map), false);
         byte[] bytes = new byte[buffer.position()];
         buffer.rewind().asByteBuffer().get(bytes);
         System.out.println(Arrays.toString(bytes));
