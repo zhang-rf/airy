@@ -1,8 +1,8 @@
 package me.rfprojects.airy.serializer;
 
 import me.rfprojects.airy.core.ClassRegistry;
-import me.rfprojects.airy.resolver.chain.CachedResolverChain;
 import me.rfprojects.airy.resolver.chain.ResolverChain;
+import me.rfprojects.airy.resolver.chain.SimpleResolverChain;
 import me.rfprojects.airy.resolver.primitive.*;
 import me.rfprojects.airy.util.ThreadLocalInteger;
 import me.rfprojects.airy.util.ThreadLocalReference;
@@ -20,7 +20,7 @@ public abstract class ReferencedSerializer implements Serializer {
     protected static final Object PRESENT = new Object();
 
     private ClassRegistry registry = new ClassRegistry();
-    private ResolverChain resolverChain = new CachedResolverChain();
+    private ResolverChain resolverChain = new SimpleResolverChain();
 
     private ThreadLocalReference<Map<Object, Integer>> objectMapReference = new ThreadLocalReference<>(SoftReference.class, IdentityHashMap.class);
     private ThreadLocalReference<Map<Integer, Object>> addressMapReference = new ThreadLocalReference<>(SoftReference.class, IdentityHashMap.class);

@@ -4,18 +4,18 @@ import me.rfprojects.airy.core.NioBuffer;
 import me.rfprojects.airy.resolver.Resolver;
 
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 
-public class CachedResolverChain implements ResolverChain {
+public class SimpleResolverChain implements ResolverChain {
 
-    private List<Resolver> resolverList = new ArrayList<>();
+    private Set<Resolver> resolverSet = new CopyOnWriteArraySet<>();
     private ConcurrentMap<Class<?>, Resolver> resolverMap = new ConcurrentHashMap<>();
 
     public void addResolver(Resolver resolver) {
-        resolverList.add(resolver);
+        resolverSet.add(resolver);
         resolverMap.clear();
     }
 
@@ -30,7 +30,7 @@ public class CachedResolverChain implements ResolverChain {
         if (mappedResolver != null)
             return mappedResolver != this && mappedResolver.writeObject(buffer, object, reference);
         else {
-            for (Resolver resolver : resolverList) {
+            for (Resolver resolver : resolverSet) {
                 if (resolver.checkType(reference)) {
                     resolver.writeObject(buffer, object, reference);
                     resolverMap.put(reference, resolver);
@@ -48,7 +48,7 @@ public class CachedResolverChain implements ResolverChain {
         if (mappedResolver != null)
             return mappedResolver != this ? mappedResolver.readObject(buffer, reference) : null;
         else {
-            for (Resolver resolver : resolverList) {
+            for (Resolver resolver : resolverSet) {
                 if (resolver.checkType(reference)) {
                     Object instance = resolver.readObject(buffer, reference);
                     resolverMap.put(reference, resolver);

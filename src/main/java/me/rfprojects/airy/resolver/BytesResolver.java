@@ -4,7 +4,7 @@ import me.rfprojects.airy.core.NioBuffer;
 
 import java.lang.reflect.Type;
 
-public class ByteArrayResolver implements Resolver {
+public class BytesResolver implements Resolver {
 
     @Override
     public boolean checkType(Class<?> type) {

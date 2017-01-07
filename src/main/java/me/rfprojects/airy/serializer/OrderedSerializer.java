@@ -112,7 +112,7 @@ public class OrderedSerializer extends ReferencedSerializer implements StructedS
                     instance = readObject(buffer, type);
                 return (T) instance;
             } else
-                return (T) readObject(buffer, type);
+                return (T) readObject(buffer, type, new Type[0]);
         } finally {
             if (deserializingDepth().decrementAndGet() == 0)
                 addressMap().clear();
