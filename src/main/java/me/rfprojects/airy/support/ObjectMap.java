@@ -74,7 +74,18 @@ public class ObjectMap implements Map<String, Object> {
                         return null;
                     buffer().position(address);
                 }
-                Field field = type.getDeclaredField(fieldNames[fieldNames.length - 1]);
+
+                Field field = null;
+                do {
+                    try {
+                        field = type.getDeclaredField(fieldNames[fieldNames.length - 1]);
+                        break;
+                    } catch (NoSuchFieldException e) {
+                        type = type.getSuperclass();
+                        if (type == Object.class)
+                            throw e;
+                    }
+                } while (true);
                 put((String) key, value = ((Resolver) serializer).readObject(buffer(), field.getType(), getGenericTypes(field.getGenericType())));
             }
             return value;

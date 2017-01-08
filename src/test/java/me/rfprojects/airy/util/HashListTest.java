@@ -7,9 +7,6 @@ import java.util.List;
 
 import static org.junit.Assert.*;
 
-/**
- * Created by LocalUser on 2016/12/23.
- */
 public class HashListTest {
 
     @Test
