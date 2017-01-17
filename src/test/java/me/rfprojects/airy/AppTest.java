@@ -1,7 +1,7 @@
 package me.rfprojects.airy;
 
-import me.rfprojects.airy.resolver.*;
-import me.rfprojects.airy.serializer.OrderedSerializer;
+import me.rfprojects.airy.handler.*;
+import me.rfprojects.airy.serializer.OrderRequiredSerializer;
 import me.rfprojects.airy.serializer.Serializer;
 import me.rfprojects.airy.serializer.StructedSerializer;
 import me.rfprojects.airy.support.ConcurrentObjectMap;
@@ -24,14 +24,14 @@ public class AppTest {
     private Me me;
 
     public AppTest() {
-        serializer = new OrderedSerializer();
-        serializer.getResolverChain().addResolver(new StringResolver());
-        serializer.getResolverChain().addResolver(new EnumResolver());
-        serializer.getResolverChain().addResolver(new BytesResolver());
-        serializer.getResolverChain().addResolver(new ArrayResolver(serializer));
-        serializer.getResolverChain().addResolver(new CollectionResolver(serializer));
-        serializer.getResolverChain().addResolver(new MapResolver(serializer));
-        serializer.getResolverChain().addResolver(new DateResolver());
+        serializer = new OrderRequiredSerializer();
+        serializer.handlerChain().appendHandler(new StringHandler());
+        serializer.handlerChain().appendHandler(new EnumHandler());
+        serializer.handlerChain().appendHandler(new BytesHandler());
+        serializer.handlerChain().appendHandler(new ArrayHandler(serializer));
+        serializer.handlerChain().appendHandler(new CollectionHandler(serializer));
+        serializer.handlerChain().appendHandler(new MapHandler(serializer));
+        serializer.handlerChain().appendHandler(new DateHandler());
         airy = new Airy(serializer);
     }
 

@@ -2,7 +2,7 @@ package me.rfprojects.airy;
 
 import me.rfprojects.airy.core.NioBuffer;
 import me.rfprojects.airy.serializer.Serializer;
-import me.rfprojects.airy.util.ThreadLocalReference;
+import me.rfprojects.airy.util.LocalReference;
 
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
@@ -11,7 +11,7 @@ import java.util.Arrays;
 
 public class Airy {
 
-    private static ThreadLocalReference<NioBuffer> bufferReference = new ThreadLocalReference<NioBuffer>() {
+    private static LocalReference<NioBuffer> bufferReference = new LocalReference<NioBuffer>() {
         @Override
         protected Reference<NioBuffer> initialValue() {
             return new WeakReference<>(NioBuffer.allocate(8192));

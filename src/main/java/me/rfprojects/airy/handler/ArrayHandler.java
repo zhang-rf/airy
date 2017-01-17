@@ -1,4 +1,4 @@
-package me.rfprojects.airy.resolver;
+package me.rfprojects.airy.handler;
 
 import me.rfprojects.airy.core.NioBuffer;
 import me.rfprojects.airy.internal.Misc;
@@ -8,24 +8,24 @@ import me.rfprojects.airy.serializer.Serializer;
 import java.lang.reflect.Array;
 import java.lang.reflect.Type;
 
-public class ArrayResolver implements Resolver {
+public class ArrayHandler implements Handler {
 
     private Serializer serializer;
 
-    public ArrayResolver(Serializer serializer) {
+    public ArrayHandler(Serializer serializer) {
         this.serializer = serializer;
     }
 
     @Override
-    public boolean checkType(Class<?> type) {
+    public boolean supportsType(Class<?> type) {
         return type != null && type.isArray();
     }
 
     @Override
-    public boolean writeObject(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
+    public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         reference = Misc.getComponentType(reference);
         Class<?> componentType = Misc.getComponentType(object.getClass());
-        serializer.getRegistry().writeClass(buffer, componentType != reference ? componentType : null);
+        serializer.registry().writeClass(buffer, componentType != reference ? componentType : null);
 
         Object array = object;
         do {
@@ -58,7 +58,7 @@ public class ArrayResolver implements Resolver {
                     buffer.putUnsignedVarint(indexer);
                     if (!isPrimitive) {
                         Class<?> type = value.getClass();
-                        serializer.getRegistry().writeClass(buffer, type != componentType ? type : null);
+                        serializer.registry().writeClass(buffer, type != componentType ? type : null);
                     }
                     serializer.serialize(buffer, value, false);
                 }
@@ -68,8 +68,8 @@ public class ArrayResolver implements Resolver {
     }
 
     @Override
-    public Object readObject(NioBuffer buffer, Class<?> reference, Type... generics) {
-        reference = serializer.getRegistry().readClass(buffer, reference);
+    public Object read(NioBuffer buffer, Class<?> reference, Type... generics) {
+        reference = serializer.registry().readClass(buffer, reference);
 
         int dimension = 1;
         while ((reference = reference.getComponentType()).isArray())
@@ -82,7 +82,7 @@ public class ArrayResolver implements Resolver {
         Object array = Array.newInstance(reference, dimensions);
         boolean isPrimitive = reference.isPrimitive();
         while ((indexer = (int) buffer.getUnsignedVarint()) != 0) {
-            Class<?> type = isPrimitive ? reference : serializer.getRegistry().readClass(buffer, reference);
+            Class<?> type = isPrimitive ? reference : serializer.registry().readClass(buffer, reference);
             setArray(array, dimensions, indexer, serializer.deserialize(buffer, type));
         }
         return array;

@@ -1,34 +1,34 @@
-package me.rfprojects.airy.resolver;
+package me.rfprojects.airy.handler;
 
 import me.rfprojects.airy.core.NioBuffer;
 
 import java.lang.reflect.Type;
 
-public class StringResolver implements Resolver {
+public class StringHandler implements Handler {
 
     private String charsetName;
 
-    public StringResolver() {
+    public StringHandler() {
         this("UTF-8");
     }
 
-    public StringResolver(String charsetName) {
+    public StringHandler(String charsetName) {
         this.charsetName = charsetName;
     }
 
     @Override
-    public boolean checkType(Class<?> type) {
+    public boolean supportsType(Class<?> type) {
         return type == String.class;
     }
 
     @Override
-    public boolean writeObject(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
+    public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         buffer.putString((String) object, charsetName);
         return true;
     }
 
     @Override
-    public Object readObject(NioBuffer buffer, Class<?> reference, Type... generics) {
+    public Object read(NioBuffer buffer, Class<?> reference, Type... generics) {
         return buffer.getString(charsetName);
     }
 }

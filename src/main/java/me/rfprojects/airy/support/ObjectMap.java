@@ -1,9 +1,9 @@
 package me.rfprojects.airy.support;
 
 import me.rfprojects.airy.core.NioBuffer;
-import me.rfprojects.airy.core.UnknownClassException;
-import me.rfprojects.airy.resolver.Resolver;
+import me.rfprojects.airy.handler.Handler;
 import me.rfprojects.airy.serializer.StructedSerializer;
+import me.rfprojects.airy.serializer.UnknownClassException;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
@@ -65,7 +65,7 @@ public class ObjectMap implements Map<String, Object> {
                 Class<?> type = this.type;
                 String[] fieldNames = ((String) key).split("\\.");
                 for (String fieldName : fieldNames) {
-                    type = serializer.getRegistry().readClass(buffer(), type);
+                    type = serializer.registry().readClass(buffer(), type);
                     if (type == null)
                         throw new UnknownClassException();
                     Map<String, Integer> structMap = serializer.getStructMap(buffer(), type);
@@ -86,7 +86,7 @@ public class ObjectMap implements Map<String, Object> {
                             throw e;
                     }
                 } while (true);
-                put((String) key, value = ((Resolver) serializer).readObject(buffer(), field.getType(), getGenericTypes(field.getGenericType())));
+                put((String) key, value = ((Handler) serializer).read(buffer(), field.getType(), getGenericTypes(field.getGenericType())));
             }
             return value;
         } catch (RuntimeException e) {

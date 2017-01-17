@@ -1,18 +1,18 @@
-package me.rfprojects.airy.resolver;
+package me.rfprojects.airy.handler;
 
 import me.rfprojects.airy.core.NioBuffer;
 
 import java.lang.reflect.Type;
 
-public class BytesResolver implements Resolver {
+public class BytesHandler implements Handler {
 
     @Override
-    public boolean checkType(Class<?> type) {
+    public boolean supportsType(Class<?> type) {
         return type == byte[].class;
     }
 
     @Override
-    public boolean writeObject(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
+    public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         byte[] bytes = (byte[]) object;
         buffer.putUnsignedVarint(bytes.length);
         buffer.asByteBuffer().put(bytes);
@@ -20,7 +20,7 @@ public class BytesResolver implements Resolver {
     }
 
     @Override
-    public Object readObject(NioBuffer buffer, Class<?> reference, Type... generics) {
+    public Object read(NioBuffer buffer, Class<?> reference, Type... generics) {
         byte[] bytes = new byte[(int) buffer.getUnsignedVarint()];
         buffer.asByteBuffer().get(bytes);
         return bytes;

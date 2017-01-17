@@ -8,19 +8,10 @@ import java.util.concurrent.ConcurrentMap;
 
 public class ClassRegistry {
 
-    private static final ConcurrentMap<String, Class<?>> CLASS_NAME_MAP = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<String, Class<?>> classNameMap = new ConcurrentHashMap<>();
     private List<Class<?>> classList = new HashList<>();
-    private int primitives;
 
     public ClassRegistry() {
-        classList.add(boolean.class);
-        classList.add(char.class);
-        classList.add(byte.class);
-        classList.add(short.class);
-        classList.add(int.class);
-        classList.add(long.class);
-        classList.add(float.class);
-        classList.add(double.class);
         classList.add(Boolean.class);
         classList.add(Character.class);
         classList.add(Byte.class);
@@ -31,7 +22,17 @@ public class ClassRegistry {
         classList.add(Double.class);
         classList.add(String.class);
         classList.add(Enum.class);
-        primitives = classList.size();
+
+        classList.add(boolean[].class);
+        classList.add(char[].class);
+        classList.add(byte[].class);
+        classList.add(short[].class);
+        classList.add(int[].class);
+        classList.add(long[].class);
+        classList.add(float[].class);
+        classList.add(double[].class);
+        classList.add(String[].class);
+        classList.add(Enum[].class);
 
         classList.add(ArrayList.class);
         classList.add(LinkedList.class);
@@ -52,17 +53,12 @@ public class ClassRegistry {
         return classList.add(Objects.requireNonNull(type)) ? classList.size() : idOf(type);
     }
 
-    public Class<?> getClass(int id) {
-        return id > 0 && id <= classList.size() ? classList.get(id - 1) : null;
-    }
-
     public int idOf(Class<?> type) {
         return classList.indexOf(type) + 1;
     }
 
-    public boolean isPrimitive(Class<?> type) {
-        int id = idOf(Objects.requireNonNull(type));
-        return id > 0 && id <= primitives;
+    public Class<?> findClass(int id) {
+        return id > 0 && id <= classList.size() ? classList.get(id - 1) : null;
     }
 
     public void writeClass(NioBuffer buffer, Class<?> type) {
@@ -79,15 +75,15 @@ public class ClassRegistry {
 
     public Class<?> readClass(NioBuffer buffer, Class<?> defaultClass) {
         try {
-            Class<?> type = getClass((int) buffer.getUnsignedVarint());
+            Class<?> type = findClass((int) buffer.getUnsignedVarint());
             if (type == null) {
                 type = defaultClass;
                 String className = buffer.getString().replaceAll("^#", "java.lang.");
                 if (!"".equals(className)) {
-                    type = CLASS_NAME_MAP.get(className);
+                    type = classNameMap.get(className);
                     if (type == null) {
                         type = Class.forName(className);
-                        CLASS_NAME_MAP.put(className, type);
+                        classNameMap.put(className, type);
                     }
                 }
             }

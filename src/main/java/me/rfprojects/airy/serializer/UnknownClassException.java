@@ -1,6 +1,10 @@
-package me.rfprojects.airy.core;
+package me.rfprojects.airy.serializer;
 
-public class UnknownClassException extends RuntimeException {
+import me.rfprojects.airy.core.AiryException;
+
+public class UnknownClassException extends AiryException {
+
+    private static final long serialVersionUID = -1617704353436719113L;
 
     public UnknownClassException() {
     }

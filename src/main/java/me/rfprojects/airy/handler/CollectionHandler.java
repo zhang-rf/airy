@@ -1,4 +1,4 @@
-package me.rfprojects.airy.resolver;
+package me.rfprojects.airy.handler;
 
 import me.rfprojects.airy.core.NioBuffer;
 import me.rfprojects.airy.serializer.Serializer;
@@ -7,24 +7,24 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.*;
 
-public class CollectionResolver implements Resolver {
+public class CollectionHandler implements Handler {
 
     private Serializer serializer;
 
-    public CollectionResolver(Serializer serializer) {
+    public CollectionHandler(Serializer serializer) {
         this.serializer = serializer;
     }
 
     @Override
-    public boolean checkType(Class<?> type) {
+    public boolean supportsType(Class<?> type) {
         return Collection.class.isAssignableFrom(type);
     }
 
     @Override
-    public boolean writeObject(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
+    public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         Collection<?> collection = (Collection<?>) object;
         buffer.putUnsignedVarint(collection.size());
-        serializer.getRegistry().writeClass(buffer, object.getClass());
+        serializer.registry().writeClass(buffer, object.getClass());
 
         Class<?> componentType = null;
         boolean isFinal = false;
@@ -42,7 +42,7 @@ public class CollectionResolver implements Resolver {
             else {
                 if (!isFinal) {
                     Class<?> type = item.getClass();
-                    serializer.getRegistry().writeClass(buffer, type != componentType ? type : null);
+                    serializer.registry().writeClass(buffer, type != componentType ? type : null);
                 }
                 serializer.serialize(buffer, item, false);
             }
@@ -63,7 +63,7 @@ public class CollectionResolver implements Resolver {
 
     @SuppressWarnings("unchecked")
     @Override
-    public Object readObject(NioBuffer buffer, Class<?> reference, Type... generics) {
+    public Object read(NioBuffer buffer, Class<?> reference, Type... generics) {
         try {
             Class<?> componentType = null;
             boolean isFinal = false;
@@ -73,7 +73,7 @@ public class CollectionResolver implements Resolver {
             }
 
             int size = (int) buffer.getUnsignedVarint();
-            Class<?> collectionType = serializer.getRegistry().readClass(buffer, null);
+            Class<?> collectionType = serializer.registry().readClass(buffer, null);
             Collection collection;
             try {
                 collection = (Collection) collectionType.getConstructor(int.class).newInstance(size);
@@ -99,7 +99,7 @@ public class CollectionResolver implements Resolver {
                 } else {
                     Class<?> type = componentType;
                     if (!isFinal)
-                        type = serializer.getRegistry().readClass(buffer, componentType);
+                        type = serializer.registry().readClass(buffer, componentType);
                     collection.add(serializer.deserialize(buffer, type));
                 }
             }

@@ -1,4 +1,4 @@
-package me.rfprojects.airy.resolver;
+package me.rfprojects.airy.handler;
 
 import me.rfprojects.airy.core.NioBuffer;
 import me.rfprojects.airy.serializer.Serializer;
@@ -7,24 +7,24 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.*;
 
-public class MapResolver implements Resolver {
+public class MapHandler implements Handler {
 
     private Serializer serializer;
 
-    public MapResolver(Serializer serializer) {
+    public MapHandler(Serializer serializer) {
         this.serializer = serializer;
     }
 
     @Override
-    public boolean checkType(Class<?> type) {
+    public boolean supportsType(Class<?> type) {
         return Map.class.isAssignableFrom(type);
     }
 
     @Override
-    public boolean writeObject(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
+    public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         Map<?, ?> map = (Map) object;
         buffer.putUnsignedVarint(map.size());
-        serializer.getRegistry().writeClass(buffer, object.getClass());
+        serializer.registry().writeClass(buffer, object.getClass());
 
         Class<?> keyType = null, valueType = null;
         boolean isKeyFinal = false, isValueFinal = false;
@@ -46,7 +46,7 @@ public class MapResolver implements Resolver {
             Object key = entry.getKey();
             if (!isKeyFinal) {
                 Class<?> type = key.getClass();
-                serializer.getRegistry().writeClass(buffer, type != keyType ? type : null);
+                serializer.registry().writeClass(buffer, type != keyType ? type : null);
             }
             serializer.serialize(buffer, key, false);
 
@@ -56,7 +56,7 @@ public class MapResolver implements Resolver {
             else {
                 if (!isValueFinal) {
                     Class<?> type = value.getClass();
-                    serializer.getRegistry().writeClass(buffer, type != valueType ? type : null);
+                    serializer.registry().writeClass(buffer, type != valueType ? type : null);
                 }
                 serializer.serialize(buffer, value, false);
             }
@@ -77,7 +77,7 @@ public class MapResolver implements Resolver {
 
     @SuppressWarnings("unchecked")
     @Override
-    public Object readObject(NioBuffer buffer, Class<?> reference, Type... generics) {
+    public Object read(NioBuffer buffer, Class<?> reference, Type... generics) {
         try {
             Class<?> keyType = null, valueType = null;
             boolean isKeyFinal = false, isValueFinal = false;
@@ -93,7 +93,7 @@ public class MapResolver implements Resolver {
             }
 
             int size = (int) buffer.getUnsignedVarint();
-            Class<?> mapType = serializer.getRegistry().readClass(buffer, null);
+            Class<?> mapType = serializer.registry().readClass(buffer, null);
             Map map;
             try {
                 map = (Map) mapType.getConstructor(int.class).newInstance(size);
@@ -115,7 +115,7 @@ public class MapResolver implements Resolver {
             for (int i = 1; i <= size; i++) {
                 Class<?> type = keyType;
                 if (!isKeyFinal)
-                    type = serializer.getRegistry().readClass(buffer, type);
+                    type = serializer.registry().readClass(buffer, type);
                 Object key = serializer.deserialize(buffer, type);
 
                 if (nullQueue != null && !nullQueue.isEmpty() && nullQueue.peek() == i) {
@@ -124,7 +124,7 @@ public class MapResolver implements Resolver {
                 } else {
                     type = valueType;
                     if (!isValueFinal)
-                        type = serializer.getRegistry().readClass(buffer, valueType);
+                        type = serializer.registry().readClass(buffer, valueType);
                     map.put(key, serializer.deserialize(buffer, type));
                 }
             }

@@ -1,25 +1,25 @@
-package me.rfprojects.airy.resolver;
+package me.rfprojects.airy.handler;
 
 import me.rfprojects.airy.core.NioBuffer;
 
 import java.lang.reflect.Type;
 import java.util.Date;
 
-public class DateResolver implements Resolver {
+public class DateHandler implements Handler {
 
     @Override
-    public boolean checkType(Class<?> type) {
+    public boolean supportsType(Class<?> type) {
         return type == Date.class;
     }
 
     @Override
-    public boolean writeObject(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
+    public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         buffer.putUnsignedVarint(((Date) object).getTime());
         return true;
     }
 
     @Override
-    public Object readObject(NioBuffer buffer, Class<?> reference, Type... generics) {
+    public Object read(NioBuffer buffer, Class<?> reference, Type... generics) {
         return new Date(buffer.getUnsignedVarint());
     }
 }
