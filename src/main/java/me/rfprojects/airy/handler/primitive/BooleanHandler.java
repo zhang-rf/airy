@@ -15,7 +15,6 @@ public class BooleanHandler implements Handler {
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         buffer.asByteBuffer().put((byte) ((boolean) object ? 1 : 0));
-        return true;
     }
 
     @Override

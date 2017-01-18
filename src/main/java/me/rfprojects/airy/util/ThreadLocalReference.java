@@ -2,13 +2,13 @@ package me.rfprojects.airy.util;
 
 import java.lang.ref.Reference;
 
-public abstract class LocalReference<T> {
+public abstract class ThreadLocalReference<T> {
 
     private ThreadLocal<Reference<? extends T>> reference = new ThreadLocal<Reference<? extends T>>() {
 
         @Override
         protected Reference<? extends T> initialValue() {
-            return LocalReference.this.initialValue();
+            return ThreadLocalReference.this.initialValue();
         }
     };
 

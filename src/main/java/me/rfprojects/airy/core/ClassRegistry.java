@@ -12,6 +12,8 @@ public class ClassRegistry {
     private List<Class<?>> classList = new HashList<>();
 
     public ClassRegistry() {
+        classList.add(Object.class);
+
         classList.add(Boolean.class);
         classList.add(Character.class);
         classList.add(Byte.class);

@@ -15,7 +15,6 @@ public class ShortHandler implements Handler {
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         buffer.putVarint((short) object);
-        return true;
     }
 
     @Override

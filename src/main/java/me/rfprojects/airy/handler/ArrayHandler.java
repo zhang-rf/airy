@@ -1,8 +1,8 @@
 package me.rfprojects.airy.handler;
 
 import me.rfprojects.airy.core.NioBuffer;
-import me.rfprojects.airy.internal.Misc;
 import me.rfprojects.airy.internal.Null;
+import me.rfprojects.airy.internal.ReflectionUtils;
 import me.rfprojects.airy.serializer.Serializer;
 
 import java.lang.reflect.Array;
@@ -23,8 +23,8 @@ public class ArrayHandler implements Handler {
 
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
-        reference = Misc.getComponentType(reference);
-        Class<?> componentType = Misc.getComponentType(object.getClass());
+        reference = ReflectionUtils.getComponentType(reference);
+        Class<?> componentType = ReflectionUtils.getComponentType(object.getClass());
         serializer.registry().writeClass(buffer, componentType != reference ? componentType : null);
 
         Object array = object;
@@ -41,7 +41,6 @@ public class ArrayHandler implements Handler {
 
         deepIterate(buffer, object, 1, componentType);
         buffer.asByteBuffer().put((byte) 0);
-        return true;
     }
 
     private int deepIterate(NioBuffer buffer, Object array, int indexer, Class<?> componentType) {
@@ -54,7 +53,7 @@ public class ArrayHandler implements Handler {
                     indexer = deepIterate(buffer, subArray, indexer, componentType);
             } else {
                 Object value = Array.get(array, i);
-                if (!Null.isNull(value, componentType)) {
+                if (value != Null.get(componentType)) {
                     buffer.putUnsignedVarint(indexer);
                     if (!isPrimitive) {
                         Class<?> type = value.getClass();

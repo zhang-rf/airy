@@ -16,7 +16,6 @@ public class BytesHandler implements Handler {
         byte[] bytes = (byte[]) object;
         buffer.putUnsignedVarint(bytes.length);
         buffer.asByteBuffer().put(bytes);
-        return true;
     }
 
     @Override

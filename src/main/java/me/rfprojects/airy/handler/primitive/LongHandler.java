@@ -15,7 +15,6 @@ public class LongHandler implements Handler {
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         buffer.putVarint((long) object);
-        return true;
     }
 
     @Override

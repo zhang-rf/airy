@@ -15,7 +15,6 @@ public class ByteHandler implements Handler {
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         buffer.putVarint((byte) object);
-        return true;
     }
 
     @Override

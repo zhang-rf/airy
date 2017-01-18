@@ -15,7 +15,6 @@ public class IntegerHandler implements Handler {
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         buffer.putVarint((int) object);
-        return true;
     }
 
     @Override

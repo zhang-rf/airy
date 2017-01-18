@@ -1,7 +1,7 @@
 package me.rfprojects.airy.support;
 
 import me.rfprojects.airy.core.NioBuffer;
-import me.rfprojects.airy.serializer.StructedSerializer;
+import me.rfprojects.airy.serializer.StructuredSerializer;
 
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
@@ -21,11 +21,11 @@ public class ConcurrentObjectMap extends ObjectMap {
         super(data);
     }
 
-    public ConcurrentObjectMap(byte[] data, StructedSerializer serializer) {
+    public ConcurrentObjectMap(byte[] data, StructuredSerializer serializer) {
         super(data, serializer);
     }
 
-    public ConcurrentObjectMap(byte[] data, StructedSerializer serializer, Class<?> type) {
+    public ConcurrentObjectMap(byte[] data, StructuredSerializer serializer, Class<?> type) {
         super(data, serializer, type);
     }
 

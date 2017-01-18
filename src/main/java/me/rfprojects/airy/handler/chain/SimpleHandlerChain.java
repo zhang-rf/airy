@@ -5,6 +5,7 @@ import me.rfprojects.airy.handler.Handler;
 import me.rfprojects.airy.handler.NoHandlerSupportsException;
 
 import java.lang.reflect.Type;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -15,9 +16,12 @@ public class SimpleHandlerChain implements HandlerChain {
     private Set<Handler> handlerSet = new CopyOnWriteArraySet<>();
     private ConcurrentMap<Class<?>, Handler> handlerMap = new ConcurrentHashMap<>();
 
-    public void appendHandler(Handler handler) {
-        handlerSet.add(handler);
-        handlerMap.clear();
+    public boolean appendHandler(Handler handler) {
+        Objects.requireNonNull(handler);
+        boolean appended = handlerSet.add(handler);
+        if (appended)
+            handlerMap.clear();
+        return appended;
     }
 
     @Override
@@ -39,9 +43,10 @@ public class SimpleHandlerChain implements HandlerChain {
 
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
-        if (!supportsType(reference))
+        Class<?> type = reference != null ? reference : object.getClass();
+        if (!supportsType(type))
             throw new NoHandlerSupportsException();
-        handlerMap.get(reference).write(buffer, object, reference, generics);
+        handlerMap.get(type).write(buffer, object, reference, generics);
     }
 
     @Override

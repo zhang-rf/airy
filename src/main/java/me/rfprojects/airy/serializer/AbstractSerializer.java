@@ -2,12 +2,15 @@ package me.rfprojects.airy.serializer;
 
 import me.rfprojects.airy.core.ClassRegistry;
 import me.rfprojects.airy.core.NioBuffer;
+import me.rfprojects.airy.handler.EnumHandler;
 import me.rfprojects.airy.handler.Handler;
+import me.rfprojects.airy.handler.StringHandler;
 import me.rfprojects.airy.handler.chain.HandlerChain;
 import me.rfprojects.airy.handler.chain.SimpleHandlerChain;
 import me.rfprojects.airy.handler.primitive.*;
 
 import java.lang.reflect.Type;
+import java.util.Objects;
 
 public abstract class AbstractSerializer implements Serializer {
 
@@ -20,7 +23,7 @@ public abstract class AbstractSerializer implements Serializer {
     }
 
     public AbstractSerializer(ClassRegistry registry) {
-        this.registry = registry;
+        this.registry = Objects.requireNonNull(registry);
         handlerChain = new SimpleHandlerChain();
         handlerChain.appendHandler(new BooleanHandler());
         handlerChain.appendHandler(new CharacterHandler());
@@ -30,11 +33,13 @@ public abstract class AbstractSerializer implements Serializer {
         handlerChain.appendHandler(new LongHandler());
         handlerChain.appendHandler(new FloatHandler());
         handlerChain.appendHandler(new DoubleHandler());
+        handlerChain.appendHandler(new StringHandler());
+        handlerChain.appendHandler(new EnumHandler());
     }
 
     public AbstractSerializer(ClassRegistry registry, HandlerChain handlerChain) {
-        this.registry = registry;
-        this.handlerChain = handlerChain;
+        this.registry = Objects.requireNonNull(registry);
+        this.handlerChain = Objects.requireNonNull(handlerChain);
     }
 
     protected abstract void writeObject(NioBuffer buffer, Object object);
@@ -56,7 +61,7 @@ public abstract class AbstractSerializer implements Serializer {
         Class<?> type = object.getClass();
         registry.writeClass(buffer, writeClass ? type : null);
         if (handlerChain.supportsType(type))
-            handlerChain.write(buffer, object, type);
+            handlerChain.write(buffer, object, null);
         else
             writeObject(buffer, object);
     }
@@ -76,8 +81,8 @@ public abstract class AbstractSerializer implements Serializer {
     private class WrapperHandlerChain implements HandlerChain {
 
         @Override
-        public void appendHandler(Handler handler) {
-            handlerChain.appendHandler(handler);
+        public boolean appendHandler(Handler handler) {
+            return handlerChain.appendHandler(handler);
         }
 
         @Override
@@ -88,7 +93,7 @@ public abstract class AbstractSerializer implements Serializer {
         @Override
         public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
             Class<?> type = object.getClass();
-            if (handlerChain.supportsType(type)) {
+            if (handlerChain.supportsType(reference)) {
                 if (reference == Object.class)
                     registry.writeClass(buffer, type);
                 handlerChain.write(buffer, object, reference, generics);

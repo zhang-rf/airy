@@ -72,7 +72,6 @@ public class MapHandler implements Handler {
             buffer.reset().asByteBuffer().putInt(nullsAddress).position(position);
         }
         buffer.unmark();
-        return true;
     }
 
     @SuppressWarnings("unchecked")

@@ -3,7 +3,7 @@ package me.rfprojects.airy;
 import me.rfprojects.airy.handler.*;
 import me.rfprojects.airy.serializer.OrderRequiredSerializer;
 import me.rfprojects.airy.serializer.Serializer;
-import me.rfprojects.airy.serializer.StructedSerializer;
+import me.rfprojects.airy.serializer.StructuredSerializer;
 import me.rfprojects.airy.support.ConcurrentObjectMap;
 import me.rfprojects.airy.support.ObjectMap;
 import org.junit.Before;
@@ -112,7 +112,7 @@ public class AppTest {
         System.out.println("map test...");
 
         byte[] data = airy.serialize(me);
-        ObjectMap objectMap = new ObjectMap(data, (StructedSerializer) serializer);
+        ObjectMap objectMap = new ObjectMap(data, (StructuredSerializer) serializer);
         assertEquals(objectMap.get("name"), "张荣帆");
         assertEquals(objectMap.get("gender"), Gender.MALE);
         assertEquals(objectMap.get("mobile"), 18667022962L);
@@ -128,7 +128,7 @@ public class AppTest {
         System.out.println("concurrent map test...");
 
         byte[] data = airy.serialize(me);
-        final ObjectMap objectMap = new ConcurrentObjectMap(data, (StructedSerializer) serializer);
+        final ObjectMap objectMap = new ConcurrentObjectMap(data, (StructuredSerializer) serializer);
         for (int i = 0; i < 10; i++) {
             new Thread(new Runnable() {
                 @Override

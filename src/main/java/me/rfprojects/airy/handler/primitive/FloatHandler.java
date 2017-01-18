@@ -15,7 +15,6 @@ public class FloatHandler implements Handler {
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         buffer.putFloat((float) object);
-        return true;
     }
 
     @Override

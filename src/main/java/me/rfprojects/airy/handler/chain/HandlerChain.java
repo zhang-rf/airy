@@ -4,5 +4,5 @@ import me.rfprojects.airy.handler.Handler;
 
 public interface HandlerChain extends Handler {
 
-    void appendHandler(Handler handler);
+    boolean appendHandler(Handler handler);
 }

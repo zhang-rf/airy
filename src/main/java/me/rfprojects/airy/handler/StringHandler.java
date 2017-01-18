@@ -24,7 +24,6 @@ public class StringHandler implements Handler {
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         buffer.putString((String) object, charsetName);
-        return true;
     }
 
     @Override

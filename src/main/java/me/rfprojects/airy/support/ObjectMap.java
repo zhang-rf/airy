@@ -1,19 +1,14 @@
 package me.rfprojects.airy.support;
 
 import me.rfprojects.airy.core.NioBuffer;
-import me.rfprojects.airy.handler.Handler;
-import me.rfprojects.airy.serializer.StructedSerializer;
-import me.rfprojects.airy.serializer.UnknownClassException;
+import me.rfprojects.airy.serializer.StructuredSerializer;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.*;
 
 public class ObjectMap implements Map<String, Object> {
 
     private byte[] data;
-    private StructedSerializer serializer;
+    private StructuredSerializer serializer;
     private Class<?> type;
 
     private NioBuffer buffer;
@@ -23,21 +18,21 @@ public class ObjectMap implements Map<String, Object> {
         this(data, null, null);
     }
 
-    public ObjectMap(byte[] data, StructedSerializer serializer) {
+    public ObjectMap(byte[] data, StructuredSerializer serializer) {
         this(data, serializer, null);
     }
 
-    public ObjectMap(byte[] data, StructedSerializer serializer, Class<?> type) {
+    public ObjectMap(byte[] data, StructuredSerializer serializer, Class<?> type) {
         this.data = Objects.requireNonNull(data);
         this.serializer = serializer;
         this.type = type;
     }
 
-    public StructedSerializer getSerializer() {
+    public StructuredSerializer getSerializer() {
         return serializer;
     }
 
-    public void setSerializer(StructedSerializer serializer) {
+    public void setSerializer(StructuredSerializer serializer) {
         this.serializer = serializer;
     }
 
@@ -64,29 +59,13 @@ public class ObjectMap implements Map<String, Object> {
             if (value == null) {
                 Class<?> type = this.type;
                 String[] fieldNames = ((String) key).split("\\.");
+                StructuredSerializer.RandomAccessor accessor = null;
                 for (String fieldName : fieldNames) {
-                    type = serializer.registry().readClass(buffer(), type);
-                    if (type == null)
-                        throw new UnknownClassException();
-                    Map<String, Integer> structMap = serializer.getStructMap(buffer(), type);
-                    Integer address = structMap.get(fieldName);
-                    if (address == null)
-                        return null;
-                    buffer().position(address);
+                    accessor = serializer.getAccessor(buffer(), type, fieldName);
+                    type = accessor.getField().getType();
+                    buffer().position(accessor.getAddress());
                 }
-
-                Field field = null;
-                do {
-                    try {
-                        field = type.getDeclaredField(fieldNames[fieldNames.length - 1]);
-                        break;
-                    } catch (NoSuchFieldException e) {
-                        type = type.getSuperclass();
-                        if (type == Object.class)
-                            throw e;
-                    }
-                } while (true);
-                put((String) key, value = ((Handler) serializer).read(buffer(), field.getType(), getGenericTypes(field.getGenericType())));
+                put((String) key, value = accessor.accessValue(buffer()));
             }
             return value;
         } catch (RuntimeException e) {
@@ -96,10 +75,6 @@ public class ObjectMap implements Map<String, Object> {
         } finally {
             buffer().clear();
         }
-    }
-
-    private Type[] getGenericTypes(Type parameterizedType) {
-        return parameterizedType instanceof ParameterizedType ? ((ParameterizedType) parameterizedType).getActualTypeArguments() : new Type[0];
     }
 
     @Override

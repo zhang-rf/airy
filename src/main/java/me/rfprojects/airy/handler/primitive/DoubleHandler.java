@@ -15,7 +15,6 @@ public class DoubleHandler implements Handler {
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         buffer.putDouble((double) object);
-        return true;
     }
 
     @Override

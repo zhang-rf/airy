@@ -15,7 +15,6 @@ public class DateHandler implements Handler {
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         buffer.putUnsignedVarint(((Date) object).getTime());
-        return true;
     }
 
     @Override

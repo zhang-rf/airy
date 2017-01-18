@@ -15,7 +15,6 @@ public class CharacterHandler implements Handler {
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         buffer.putVarint((char) object);
-        return true;
     }
 
     @Override
