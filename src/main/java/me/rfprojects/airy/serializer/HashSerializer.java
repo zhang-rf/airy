@@ -8,10 +8,11 @@ import me.rfprojects.airy.internal.ReflectionUtils;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class OrderRequiredSerializer extends ReferencedSerializer implements StructuredSerializer {
+public class HashSerializer extends ReferencedSerializer implements StructuredSerializer {
 
     @Override
     public void serialize(NioBuffer buffer, Object object, boolean writeClass) {
@@ -41,14 +42,13 @@ public class OrderRequiredSerializer extends ReferencedSerializer implements Str
             int baseAddress = buffer.position();
 
             Class<?> nextClass = object.getClass();
-            List<Integer> addressList = null;
+            Map<Field, Integer> fieldMap = null;
             do {
                 Field[] fields = nextClass.getDeclaredFields();
-                if (addressList == null)
-                    addressList = new ArrayList<>(Math.max(fields.length, 10));
+                if (fieldMap == null)
+                    fieldMap = new HashMap<>(Math.max(fields.length, 16));
 
                 for (Field field : fields) {
-                    addressList.add(0);
                     if (!ReflectionUtils.isFieldSerializable(field))
                         continue;
 
@@ -58,10 +58,10 @@ public class OrderRequiredSerializer extends ReferencedSerializer implements Str
                     Object value = field.get(object);
                     if (value != Null.get(type)) {
                         if (objectMap.containsKey(value))
-                            addressList.set(addressList.size() - 1, -objectMap.get(value));
+                            fieldMap.put(field, -objectMap.get(value));
                         else {
                             int address = buffer.position();
-                            addressList.set(addressList.size() - 1, address);
+                            fieldMap.put(field, address);
                             handlerChain().write(buffer, value, type, ReflectionUtils.getTypeArguments(field.getGenericType()));
                             objectMap.put(value, address);
                         }
@@ -71,9 +71,11 @@ public class OrderRequiredSerializer extends ReferencedSerializer implements Str
 
             int headerAddress = buffer.position();
             buffer.reset().unmark().asByteBuffer().putInt(headerAddress).position(headerAddress);
-            for (int address : addressList) {
-                buffer.putUnsignedVarint(address == 0 ? 0
-                        : ((address > 0 ? address - baseAddress : -address + headerAddress) + 1));
+            buffer.putUnsignedVarint(fieldMap.size());
+            for (Map.Entry<Field, Integer> fieldEntry : fieldMap.entrySet()) {
+                buffer.asByteBuffer().putShort((short) fieldEntry.getKey().getName().hashCode());
+                int address = fieldEntry.getValue();
+                buffer.putUnsignedVarint(address > 0 ? address - baseAddress : -address + headerAddress);
             }
         } catch (RuntimeException e) {
             throw e;
@@ -98,24 +100,26 @@ public class OrderRequiredSerializer extends ReferencedSerializer implements Str
                 defaultConstructor.setAccessible(true);
             Object instance = defaultConstructor.newInstance();
 
-            List<Field> fieldList = getFieldList(type);
-            for (Field field : fieldList) {
-                int offset = (int) buffer.getUnsignedVarint() - 1;
-                if (offset >= 0) {
-                    if (!field.isAccessible())
-                        field.setAccessible(true);
+            int fieldSize = (int) buffer.getUnsignedVarint();
+            Map<Short, Field> fieldMap = getFieldMap(type, fieldSize);
+            for (int i = 0; i < fieldSize; i++) {
+                Field field = fieldMap.get(buffer.asByteBuffer().getShort());
+                int offset = (int) buffer.getUnsignedVarint();
+                if (field == null)
+                    continue;
 
-                    int address = (offset < headerAddress) ? (baseAddress + offset) : (offset - headerAddress);
-                    if (addressMap.containsKey(address)) {
-                        Object value = addressMap.get(address);
-                        field.set(instance, value == this ? instance : value);
-                    } else {
-                        buffer.mark().position(address);
-                        Object value = handlerChain().read(buffer, field.getType(), ReflectionUtils.getTypeArguments(field.getGenericType()));
-                        field.set(instance, value);
-                        buffer.reset().unmark();
-                        addressMap.put(address, value);
-                    }
+                if (!field.isAccessible())
+                    field.setAccessible(true);
+                int address = (offset < headerAddress) ? (baseAddress + offset) : (offset - headerAddress);
+                if (addressMap.containsKey(address)) {
+                    Object value = addressMap.get(address);
+                    field.set(instance, value == this ? instance : value);
+                } else {
+                    buffer.mark().position(address);
+                    Object value = handlerChain().read(buffer, field.getType(), ReflectionUtils.getTypeArguments(field.getGenericType()));
+                    field.set(instance, value);
+                    buffer.reset().unmark();
+                    addressMap.put(address, value);
                 }
             }
             return instance;
@@ -126,18 +130,15 @@ public class OrderRequiredSerializer extends ReferencedSerializer implements Str
         }
     }
 
-    private List<Field> getFieldList(Class<?> type) {
-        List<Field> fieldList = null;
+    private Map<Short, Field> getFieldMap(Class<?> type, int fieldSize) {
+        Map<Short, Field> fieldMap = new HashMap<>(fieldSize);
         do {
-            Field[] fields = type.getDeclaredFields();
-            if (fieldList == null)
-                fieldList = new ArrayList<>(Math.max(fields.length, 10));
-
-            for (Field field : type.getDeclaredFields())
+            for (Field field : type.getDeclaredFields()) {
                 if (ReflectionUtils.isFieldSerializable(field))
-                    fieldList.add(field);
+                    fieldMap.put((short) field.getName().hashCode(), field);
+            }
         } while ((type = type.getSuperclass()) != Object.class);
-        return fieldList;
+        return fieldMap;
     }
 
     @Override
@@ -151,10 +152,12 @@ public class OrderRequiredSerializer extends ReferencedSerializer implements Str
             int headerAddress = buffer.asByteBuffer().getInt();
             int baseAddress = buffer.position();
             buffer.position(headerAddress);
-            List<Field> fieldList = getFieldList(type);
-            for (Field field : fieldList) {
-                int offset = (int) buffer.getUnsignedVarint() - 1;
-                if (offset >= 0) {
+            int fieldSize = (int) buffer.getUnsignedVarint();
+            Map<Short, Field> fieldMap = getFieldMap(type, fieldSize);
+            for (int i = 0; i < fieldSize; i++) {
+                Field field = fieldMap.get(buffer.asByteBuffer().getShort());
+                int offset = (int) buffer.getUnsignedVarint();
+                if (field != null) {
                     int address = (offset < headerAddress) ? (baseAddress + offset) : (offset - headerAddress);
                     randomAccessorList.add(new Accessor(address, field));
                 }
@@ -175,16 +178,14 @@ public class OrderRequiredSerializer extends ReferencedSerializer implements Str
             int headerAddress = buffer.asByteBuffer().getInt();
             int baseAddress = buffer.position();
             buffer.position(headerAddress);
-            List<Field> fieldList = getFieldList(type);
-            for (Field field : fieldList) {
-                int offset = (int) buffer.getUnsignedVarint() - 1;
-                if (field.getName().equals(name)) {
-                    if (offset < 0)
-                        return new Accessor(-1, field);
-                    else {
-                        int address = (offset < headerAddress) ? (baseAddress + offset) : (offset - headerAddress);
-                        return new Accessor(address, field);
-                    }
+            int fieldSize = (int) buffer.getUnsignedVarint();
+            Map<Short, Field> fieldMap = getFieldMap(type, fieldSize);
+            for (int i = 0; i < fieldSize; i++) {
+                Field field = fieldMap.get(buffer.asByteBuffer().getShort());
+                int offset = (int) buffer.getUnsignedVarint();
+                if (field != null && field.getName().equals(name)) {
+                    int address = (offset < headerAddress) ? (baseAddress + offset) : (offset - headerAddress);
+                    return new Accessor(address, field);
                 }
             }
             throw new AiryException(new NoSuchFieldException());
@@ -215,10 +216,9 @@ public class OrderRequiredSerializer extends ReferencedSerializer implements Str
 
         @Override
         public Object accessValue(NioBuffer buffer) {
-            Class<?> type = field.getType();
             if (address < 0)
-                return Null.get(type);
-            return handlerChain().read(buffer.position(address), type,
+                return null;
+            return handlerChain().read(buffer.position(address), field.getType(),
                     ReflectionUtils.getTypeArguments(field.getGenericType()));
         }
     }
