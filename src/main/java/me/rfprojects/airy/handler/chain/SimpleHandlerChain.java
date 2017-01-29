@@ -14,7 +14,7 @@ public class SimpleHandlerChain implements HandlerChain {
 
     private Set<Handler> handlerSet = new CopyOnWriteArraySet<>();
     private ConcurrentMap<Class<?>, Handler> handlerMap = new ConcurrentHashMap<>();
-    private ThreadLocal<Handler> lastHandler = new ThreadLocal<Handler>() {
+    private ThreadLocal<Handler> currentHandler = new ThreadLocal<Handler>() {
         @Override
         protected Handler initialValue() {
             throw new HandlerUnavailableException();
@@ -52,24 +52,26 @@ public class SimpleHandlerChain implements HandlerChain {
                 return false;
             }
         } finally {
-            lastHandler.remove();
-            Handler handler = handlerMap.get(type);
-            if (handler != null)
-                lastHandler.set(handler);
+            currentHandler.remove();
+            if (type != null && type != Object.class) {
+                Handler handler = handlerMap.get(type);
+                if (handler != null && handler != this)
+                    currentHandler.set(handler);
+            }
         }
     }
 
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
-        Handler handler = lastHandler.get();
-        lastHandler.remove();
+        Handler handler = currentHandler.get();
+        currentHandler.remove();
         handler.write(buffer, object, reference, generics);
     }
 
     @Override
     public Object read(NioBuffer buffer, Class<?> reference, Type... generics) {
-        Handler handler = lastHandler.get();
-        lastHandler.remove();
+        Handler handler = currentHandler.get();
+        currentHandler.remove();
         return handler.read(buffer, reference, generics);
     }
 }
