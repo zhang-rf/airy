@@ -59,7 +59,7 @@ public class ObjectMap implements Map<String, Object> {
             if (value == null) {
                 Class<?> type = this.type;
                 String[] fieldNames = ((String) key).split("\\.");
-                StructuredSerializer.RandomAccessor accessor = null;
+                StructuredSerializer.FieldAccessor accessor = null;
                 for (String fieldName : fieldNames) {
                     accessor = serializer.getAccessor(buffer(), type, fieldName);
                     type = accessor.getField().getType();

@@ -1,52 +1,42 @@
 package me.rfprojects.airy.serializer;
 
-import me.rfprojects.airy.core.AiryException;
+import me.rfprojects.airy.core.ClassRegistry;
 import me.rfprojects.airy.core.NioBuffer;
+import me.rfprojects.airy.handler.chain.HandlerChain;
 import me.rfprojects.airy.internal.Null;
 import me.rfprojects.airy.internal.ReflectionUtils;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class HashSerializer extends ReferencedSerializer implements StructuredSerializer {
+public class HashSerializer extends AbstractReferencedStructuredSerializer implements StructuredSerializer {
 
-    @Override
-    public void serialize(NioBuffer buffer, Object object, boolean writeClass) {
-        try {
-            super.serialize(buffer, object, writeClass);
-        } finally {
-            objectMap().clear();
-        }
+    private ClassRegistry registry;
+
+    public HashSerializer(ClassRegistry registry, HandlerChain handlerChain) {
+        super(registry, handlerChain);
+        this.registry = registry;
     }
 
     @Override
-    public <T> T deserialize(NioBuffer buffer, Class<T> type) {
-        try {
-            return super.deserialize(buffer, type);
-        } finally {
-            addressMap().clear();
-        }
-    }
-
-    @Override
-    protected void writeObject(NioBuffer buffer, Object object) {
+    protected void writeObject(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
         try {
             Map<Object, Integer> objectMap = objectMap();
             objectMap.put(object, buffer.position());
 
             buffer.mark().skip(4);
             int baseAddress = buffer.position();
-
             Class<?> nextClass = object.getClass();
-            Map<Field, Integer> fieldMap = null;
+            Map<Field, Integer> fieldAddressMap = null;
             do {
                 Field[] fields = nextClass.getDeclaredFields();
-                if (fieldMap == null)
-                    fieldMap = new HashMap<>(Math.max(fields.length, 16));
+                if (fieldAddressMap == null)
+                    fieldAddressMap = new HashMap<>(Math.max(fields.length, 16));
 
                 for (Field field : fields) {
                     if (!ReflectionUtils.isFieldSerializable(field))
@@ -58,12 +48,12 @@ public class HashSerializer extends ReferencedSerializer implements StructuredSe
                     Object value = field.get(object);
                     if (value != Null.get(type)) {
                         if (objectMap.containsKey(value))
-                            fieldMap.put(field, -objectMap.get(value));
+                            fieldAddressMap.put(field, -objectMap.get(value));
                         else {
                             int address = buffer.position();
-                            fieldMap.put(field, address);
-                            handlerChain().write(buffer, value, type, ReflectionUtils.getTypeArguments(field.getGenericType()));
+                            fieldAddressMap.put(field, address);
                             objectMap.put(value, address);
+                            serialize(buffer, value, true, type, ReflectionUtils.getTypeArguments(field.getGenericType()));
                         }
                     }
                 }
@@ -71,8 +61,8 @@ public class HashSerializer extends ReferencedSerializer implements StructuredSe
 
             int headerAddress = buffer.position();
             buffer.reset().unmark().asByteBuffer().putInt(headerAddress).position(headerAddress);
-            buffer.putUnsignedVarint(fieldMap.size());
-            for (Map.Entry<Field, Integer> fieldEntry : fieldMap.entrySet()) {
+            buffer.putUnsignedVarint(fieldAddressMap.size());
+            for (Map.Entry<Field, Integer> fieldEntry : fieldAddressMap.entrySet()) {
                 buffer.asByteBuffer().putShort((short) fieldEntry.getKey().getName().hashCode());
                 int address = fieldEntry.getValue();
                 buffer.putUnsignedVarint(address > 0 ? address - baseAddress : -address + headerAddress);
@@ -85,7 +75,7 @@ public class HashSerializer extends ReferencedSerializer implements StructuredSe
     }
 
     @Override
-    protected Object readObject(NioBuffer buffer, Class<?> type) {
+    protected Object readObject(NioBuffer buffer, Class<?> type, Class<?> reference, Type... generics) {
         try {
             Map<Integer, Object> addressMap = addressMap();
             if (!addressMap.containsKey(buffer.position()))
@@ -116,10 +106,10 @@ public class HashSerializer extends ReferencedSerializer implements StructuredSe
                     field.set(instance, value == this ? instance : value);
                 } else {
                     buffer.mark().position(address);
-                    Object value = handlerChain().read(buffer, field.getType(), ReflectionUtils.getTypeArguments(field.getGenericType()));
+                    Object value = deserialize(buffer, null, field.getType(), ReflectionUtils.getTypeArguments(field.getGenericType()));
                     field.set(instance, value);
-                    buffer.reset().unmark();
                     addressMap.put(address, value);
+                    buffer.reset().unmark();
                 }
             }
             return instance;
@@ -127,6 +117,36 @@ public class HashSerializer extends ReferencedSerializer implements StructuredSe
             throw e;
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public FieldAccessor[] getAccessors(NioBuffer buffer, Class<?> type) {
+        buffer.mark();
+        try {
+            if ((type = registry.readClass(buffer, type)) == null)
+                throw new UnknownClassException();
+
+            List<FieldAccessor> accessorList = new ArrayList<>();
+            int headerAddress = buffer.asByteBuffer().getInt();
+            int baseAddress = buffer.position();
+            buffer.position(headerAddress);
+
+            int fieldSize = (int) buffer.getUnsignedVarint();
+            Map<Short, Field> fieldMap = getFieldMap(type, fieldSize);
+            for (int i = 0; i < fieldSize; i++) {
+                Field field = fieldMap.remove(buffer.asByteBuffer().getShort());
+                int offset = (int) buffer.getUnsignedVarint();
+                if (field != null) {
+                    int address = (offset < headerAddress) ? (baseAddress + offset) : (offset - headerAddress);
+                    accessorList.add(new Accessor(field, address));
+                }
+            }
+            for (Field field : fieldMap.values())
+                accessorList.add(new Accessor(field, -1));
+            return (FieldAccessor[]) accessorList.toArray();
+        } finally {
+            buffer.reset().unmark();
         }
     }
 
@@ -139,87 +159,5 @@ public class HashSerializer extends ReferencedSerializer implements StructuredSe
             }
         } while ((type = type.getSuperclass()) != Object.class);
         return fieldMap;
-    }
-
-    @Override
-    public RandomAccessor[] getAccessors(NioBuffer buffer, Class<?> type) {
-        try {
-            buffer.mark();
-            if ((type = registry().readClass(buffer, type)) == null)
-                throw new UnknownClassException();
-
-            List<RandomAccessor> randomAccessorList = new ArrayList<>();
-            int headerAddress = buffer.asByteBuffer().getInt();
-            int baseAddress = buffer.position();
-            buffer.position(headerAddress);
-            int fieldSize = (int) buffer.getUnsignedVarint();
-            Map<Short, Field> fieldMap = getFieldMap(type, fieldSize);
-            for (int i = 0; i < fieldSize; i++) {
-                Field field = fieldMap.get(buffer.asByteBuffer().getShort());
-                int offset = (int) buffer.getUnsignedVarint();
-                if (field != null) {
-                    int address = (offset < headerAddress) ? (baseAddress + offset) : (offset - headerAddress);
-                    randomAccessorList.add(new Accessor(address, field));
-                }
-            }
-            return (RandomAccessor[]) randomAccessorList.toArray();
-        } finally {
-            buffer.reset().unmark();
-        }
-    }
-
-    @Override
-    public RandomAccessor getAccessor(NioBuffer buffer, Class<?> type, String name) {
-        try {
-            buffer.mark();
-            if ((type = registry().readClass(buffer, type)) == null)
-                throw new UnknownClassException();
-
-            int headerAddress = buffer.asByteBuffer().getInt();
-            int baseAddress = buffer.position();
-            buffer.position(headerAddress);
-            int fieldSize = (int) buffer.getUnsignedVarint();
-            Map<Short, Field> fieldMap = getFieldMap(type, fieldSize);
-            for (int i = 0; i < fieldSize; i++) {
-                Field field = fieldMap.get(buffer.asByteBuffer().getShort());
-                int offset = (int) buffer.getUnsignedVarint();
-                if (field != null && field.getName().equals(name)) {
-                    int address = (offset < headerAddress) ? (baseAddress + offset) : (offset - headerAddress);
-                    return new Accessor(address, field);
-                }
-            }
-            throw new AiryException(new NoSuchFieldException());
-        } finally {
-            buffer.reset().unmark();
-        }
-    }
-
-    private class Accessor implements RandomAccessor {
-
-        private final int address;
-        private final Field field;
-
-        Accessor(int address, Field field) {
-            this.address = address;
-            this.field = field;
-        }
-
-        @Override
-        public int getAddress() {
-            return address;
-        }
-
-        @Override
-        public Field getField() {
-            return field;
-        }
-
-        @Override
-        public Object accessValue(NioBuffer buffer) {
-            if (address < 0)
-                return null;
-            return handlerChain().read(buffer.position(address), field.getType(),
-                    ReflectionUtils.getTypeArguments(field.getGenericType()));
-        }
     }
 }

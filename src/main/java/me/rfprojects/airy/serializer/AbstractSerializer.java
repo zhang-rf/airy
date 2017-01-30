@@ -25,11 +25,25 @@ public abstract class AbstractSerializer implements Serializer {
 
     @Override
     public void serialize(NioBuffer buffer, Object object, boolean writeClass, Class<?> reference, Type... generics) {
-        if (sRecursionFlag.get() != Boolean.TRUE) {
-            serialize(buffer, object, writeClass);
-            return;
-        }
+        if (sRecursionFlag.get() != Boolean.TRUE)
+            serialize$Surface(buffer, object, writeClass, reference, generics);
+        else
+            serialize$Recursion(buffer, object, writeClass, reference, generics);
 
+    }
+
+    protected void serialize$Surface(NioBuffer buffer, Object object, boolean writeClass, Class<?> reference, Type... generics) {
+        sRecursionFlag.set(Boolean.TRUE);
+        try {
+            if (!writeClass)
+                registry.writeClass(buffer, null);
+            serialize(buffer, object, writeClass, reference, generics);
+        } finally {
+            sRecursionFlag.remove();
+        }
+    }
+
+    protected void serialize$Recursion(NioBuffer buffer, Object object, boolean writeClass, Class<?> reference, Type... generics) {
         if (handlerChain.supportsType(reference))
             handlerChain.write(buffer, object, reference, generics);
         else {
@@ -49,22 +63,25 @@ public abstract class AbstractSerializer implements Serializer {
         }
     }
 
-    protected void serialize(NioBuffer buffer, Object object, boolean writeClass) {
-        sRecursionFlag.set(Boolean.TRUE);
-        try {
-            if (!writeClass)
-                registry.writeClass(buffer, null);
-            serialize(buffer, object, writeClass, null);
-        } finally {
-            sRecursionFlag.remove();
-        }
-    }
-
     @Override
     public Object deserialize(NioBuffer buffer, Class<?> type, Class<?> reference, Type... generics) {
         if (desRecursionFlag.get() != Boolean.TRUE)
-            return deserialize(buffer, type);
+            return deserialize$Surface(buffer, type, reference, generics);
+        return deserialize$Recursion(buffer, type, reference, generics);
+    }
 
+    protected Object deserialize$Surface(NioBuffer buffer, Class<?> type, Class<?> reference, Type... generics) {
+        desRecursionFlag.set(Boolean.TRUE);
+        try {
+            if ((type = registry.readClass(buffer, type)) == null)
+                throw new UnknownClassException();
+            return deserialize(buffer, type, reference, generics);
+        } finally {
+            desRecursionFlag.remove();
+        }
+    }
+
+    protected Object deserialize$Recursion(NioBuffer buffer, Class<?> type, Class<?> reference, Type... generics) {
         if (handlerChain.supportsType(reference))
             return handlerChain.read(buffer, reference, generics);
         else {
@@ -76,17 +93,6 @@ public abstract class AbstractSerializer implements Serializer {
                 return handlerChain.read(buffer, reference, generics);
             else
                 return readObject(buffer, type, reference, generics);
-        }
-    }
-
-    protected Object deserialize(NioBuffer buffer, Class<?> type) {
-        desRecursionFlag.set(Boolean.TRUE);
-        try {
-            if ((type = registry.readClass(buffer, type)) == null)
-                throw new UnknownClassException();
-            return deserialize(buffer, type, null);
-        } finally {
-            desRecursionFlag.remove();
         }
     }
 }

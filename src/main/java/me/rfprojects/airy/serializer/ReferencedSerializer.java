@@ -7,6 +7,7 @@ import me.rfprojects.airy.util.ThreadLocalReference;
 
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
+import java.lang.reflect.Type;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
@@ -20,18 +21,18 @@ public abstract class ReferencedSerializer extends AbstractSerializer {
     }
 
     @Override
-    protected void serialize(NioBuffer buffer, Object object, boolean writeClass) {
+    protected void serialize$Surface(NioBuffer buffer, Object object, boolean writeClass, Class<?> reference, Type... generics) {
         try {
-            super.serialize(buffer, object, writeClass);
+            super.serialize$Surface(buffer, object, writeClass, reference, generics);
         } finally {
             objectMap().clear();
         }
     }
 
     @Override
-    protected Object deserialize(NioBuffer buffer, Class<?> type) {
+    protected Object deserialize$Surface(NioBuffer buffer, Class<?> type, Class<?> reference, Type... generics) {
         try {
-            return super.deserialize(buffer, type);
+            return super.deserialize$Surface(buffer, type, reference, generics);
         } finally {
             addressMap().clear();
         }

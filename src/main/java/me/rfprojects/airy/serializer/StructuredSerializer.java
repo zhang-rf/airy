@@ -6,15 +6,15 @@ import java.lang.reflect.Field;
 
 public interface StructuredSerializer extends Serializer {
 
-    RandomAccessor[] getAccessors(NioBuffer buffer, Class<?> type);
+    FieldAccessor[] getAccessors(NioBuffer buffer, Class<?> type);
 
-    RandomAccessor getAccessor(NioBuffer buffer, Class<?> type, String name);
+    FieldAccessor getAccessor(NioBuffer buffer, Class<?> type, String name);
 
-    interface RandomAccessor {
-
-        int getAddress();
+    interface FieldAccessor {
 
         Field getField();
+
+        int getAddress();
 
         Object accessValue(NioBuffer buffer);
     }
