@@ -1,7 +1,7 @@
 package me.rfprojects.airy;
 
 import me.rfprojects.airy.handler.*;
-import me.rfprojects.airy.serializer.OrderedSerializer;
+import me.rfprojects.airy.serializer.OrderSerializer;
 import me.rfprojects.airy.serializer.Serializer;
 import me.rfprojects.airy.serializer.StructuredSerializer;
 import me.rfprojects.airy.support.ConcurrentObjectMap;
@@ -24,7 +24,7 @@ public class AppTest {
     private Me me;
 
     public AppTest() {
-        serializer = new OrderedSerializer();
+        serializer = new OrderSerializer();
         serializer.handlerChain().appendHandler(new StringHandler());
         serializer.handlerChain().appendHandler(new EnumHandler());
         serializer.handlerChain().appendHandler(new BytesHandler());

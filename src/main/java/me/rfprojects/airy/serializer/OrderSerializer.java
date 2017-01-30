@@ -11,11 +11,11 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.util.*;
 
-public class OrderedSerializer extends AbstractReferencedStructuredSerializer implements StructuredSerializer {
+public class OrderSerializer extends AbstractReferencedStructuredSerializer implements StructuredSerializer {
 
     private ClassRegistry registry;
 
-    public OrderedSerializer(ClassRegistry registry, HandlerChain handlerChain) {
+    public OrderSerializer(ClassRegistry registry, HandlerChain handlerChain) {
         super(registry, handlerChain);
         this.registry = registry;
     }
