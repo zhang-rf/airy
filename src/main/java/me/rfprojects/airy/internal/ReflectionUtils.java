@@ -18,8 +18,13 @@ public class ReflectionUtils {
     }
 
     public static Class<?> getComponentType(Class<?> type) {
-        while (type.isArray())
-            type = type.getComponentType();
+        if (type != null)
+            while (type.isArray())
+                type = type.getComponentType();
         return type;
+    }
+
+    public static boolean isArray(Class<?> type) {
+        return type != null && type.isArray();
     }
 }

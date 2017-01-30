@@ -1,24 +1,24 @@
-package me.rfprojects.airy.handler.primitive;
+package me.rfprojects.airy.handler;
 
 import me.rfprojects.airy.core.NioBuffer;
-import me.rfprojects.airy.handler.Handler;
 
 import java.lang.reflect.Type;
+import java.util.TimeZone;
 
-public class BooleanHandler implements Handler {
+public class TimeZoneHandler implements Handler {
 
     @Override
     public boolean supportsType(Class<?> type) {
-        return type == boolean.class || type == Boolean.class;
+        return type == TimeZone.class;
     }
 
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
-        buffer.putBoolean((Boolean) object);
+        buffer.putString(((TimeZone) object).getID());
     }
 
     @Override
     public Object read(NioBuffer buffer, Class<?> reference, Type... generics) {
-        return buffer.getBoolean();
+        return TimeZone.getTimeZone(buffer.getString());
     }
 }

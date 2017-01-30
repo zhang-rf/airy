@@ -2,6 +2,11 @@ package me.rfprojects.airy.core;
 
 import me.rfprojects.airy.util.HashList;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.net.URL;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -12,8 +17,6 @@ public class ClassRegistry {
     private List<Class<?>> classList = new HashList<>();
 
     public ClassRegistry() {
-        classList.add(Object.class);
-
         classList.add(Boolean.class);
         classList.add(Character.class);
         classList.add(Byte.class);
@@ -23,6 +26,7 @@ public class ClassRegistry {
         classList.add(Float.class);
         classList.add(Double.class);
         classList.add(String.class);
+        classList.add(Object.class);
         classList.add(Enum.class);
 
         classList.add(boolean[].class);
@@ -34,8 +38,11 @@ public class ClassRegistry {
         classList.add(float[].class);
         classList.add(double[].class);
         classList.add(String[].class);
+        classList.add(Object[].class);
         classList.add(Enum[].class);
 
+        classList.add(Collection.class);
+        classList.add(Map.class);
         classList.add(ArrayList.class);
         classList.add(LinkedList.class);
         classList.add(PriorityQueue.class);
@@ -49,6 +56,16 @@ public class ClassRegistry {
         classList.add(BitSet.class);
         classList.add(LinkedHashSet.class);
         classList.add(TreeSet.class);
+
+        classList.add(BigInteger.class);
+        classList.add(BigDecimal.class);
+        classList.add(Date.class);
+        classList.add(Timestamp.class);
+        classList.add(java.sql.Date.class);
+        classList.add(Time.class);
+        classList.add(TimeZone.class);
+        classList.add(Calendar.class);
+        classList.add(URL.class);
     }
 
     public int register(Class<?> type) {

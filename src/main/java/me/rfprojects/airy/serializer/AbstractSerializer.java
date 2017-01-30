@@ -29,7 +29,6 @@ public abstract class AbstractSerializer implements Serializer {
             serialize$Surface(buffer, object, writeClass, reference, generics);
         else
             serialize$Recursion(buffer, object, writeClass, reference, generics);
-
     }
 
     protected void serialize$Surface(NioBuffer buffer, Object object, boolean writeClass, Class<?> reference, Type... generics) {

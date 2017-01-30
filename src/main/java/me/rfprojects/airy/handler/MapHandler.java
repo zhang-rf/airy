@@ -1,17 +1,20 @@
 package me.rfprojects.airy.handler;
 
+import me.rfprojects.airy.core.ClassRegistry;
 import me.rfprojects.airy.core.NioBuffer;
 import me.rfprojects.airy.serializer.Serializer;
 
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
-import java.util.*;
+import java.util.Map;
 
 public class MapHandler implements Handler {
 
+    private ClassRegistry registry;
     private Serializer serializer;
 
-    public MapHandler(Serializer serializer) {
+    public MapHandler(ClassRegistry registry, Serializer serializer) {
+        this.registry = registry;
         this.serializer = serializer;
     }
 
@@ -22,56 +25,50 @@ public class MapHandler implements Handler {
 
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
-        Map<?, ?> map = (Map) object;
-        buffer.putUnsignedVarint(map.size());
-        serializer.registry().writeClass(buffer, object.getClass());
-
         Class<?> keyType = null, valueType = null;
-        boolean isKeyFinal = false, isValueFinal = false;
+        boolean isFinalKeyType = false, isFinalValueType = false;
         if (generics.length == 2) {
             if (generics[0] instanceof Class) {
                 keyType = (Class<?>) generics[0];
-                isKeyFinal = Modifier.isFinal(keyType.getModifiers());
+                isFinalKeyType = Modifier.isFinal(keyType.getModifiers());
             }
             if (generics[1] instanceof Class) {
                 valueType = (Class<?>) generics[1];
-                isValueFinal = Modifier.isFinal(valueType.getModifiers());
+                isFinalValueType = Modifier.isFinal(valueType.getModifiers());
             }
         }
 
-        buffer.mark().asByteBuffer().putInt(-1);
-        List<Integer> nullList = new ArrayList<>();
-        int index = 1;
+        Map<?, ?> map = (Map) object;
+        registry.writeClass(buffer, map.getClass());
+        buffer.putUnsignedVarint(map.size());
+
+        boolean containsNullKey = map.containsKey(null);
+        boolean containsNullValue = map.containsValue(null);
+        buffer.putBoolean(containsNullKey);
+        buffer.putBoolean(containsNullValue);
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             Object key = entry.getKey();
-            if (!isKeyFinal) {
-                Class<?> type = key.getClass();
-                serializer.registry().writeClass(buffer, type != keyType ? type : null);
+            if (key == null)
+                registry.writeClass(buffer, Map.class);
+            else {
+                if (!isFinalKeyType || containsNullKey) {
+                    Class<?> type = key.getClass();
+                    registry.writeClass(buffer, type != keyType ? type : null);
+                }
+                serializer.serialize(buffer, key, false, null);
             }
-            serializer.serialize(buffer, key, false);
 
             Object value = entry.getValue();
             if (value == null)
-                nullList.add(index);
+                registry.writeClass(buffer, Map.class);
             else {
-                if (!isValueFinal) {
+                if (!isFinalValueType || containsNullValue) {
                     Class<?> type = value.getClass();
-                    serializer.registry().writeClass(buffer, type != valueType ? type : null);
+                    registry.writeClass(buffer, type != valueType ? type : null);
                 }
-                serializer.serialize(buffer, value, false);
+                serializer.serialize(buffer, value, false, null);
             }
-            index++;
         }
-
-        if (!nullList.isEmpty()) {
-            int nullsAddress = buffer.position();
-            for (int i : nullList)
-                buffer.putUnsignedVarint(i);
-            buffer.asByteBuffer().put((byte) 0);
-            int position = buffer.position();
-            buffer.reset().asByteBuffer().putInt(nullsAddress).position(position);
-        }
-        buffer.unmark();
     }
 
     @SuppressWarnings("unchecked")
@@ -79,20 +76,20 @@ public class MapHandler implements Handler {
     public Object read(NioBuffer buffer, Class<?> reference, Type... generics) {
         try {
             Class<?> keyType = null, valueType = null;
-            boolean isKeyFinal = false, isValueFinal = false;
+            boolean isFinalKeyType = false, isFinalValueType = false;
             if (generics.length == 2) {
                 if (generics[0] instanceof Class) {
                     keyType = (Class<?>) generics[0];
-                    isKeyFinal = Modifier.isFinal(keyType.getModifiers());
+                    isFinalKeyType = Modifier.isFinal(keyType.getModifiers());
                 }
                 if (generics[1] instanceof Class) {
                     valueType = (Class<?>) generics[1];
-                    isValueFinal = Modifier.isFinal(valueType.getModifiers());
+                    isFinalValueType = Modifier.isFinal(valueType.getModifiers());
                 }
             }
 
+            Class<?> mapType = registry.readClass(buffer, null);
             int size = (int) buffer.getUnsignedVarint();
-            Class<?> mapType = serializer.registry().readClass(buffer, null);
             Map map;
             try {
                 map = (Map) mapType.getConstructor(int.class).newInstance(size);
@@ -100,32 +97,23 @@ public class MapHandler implements Handler {
                 map = (Map) mapType.newInstance();
             }
 
-            int nullsAddress = buffer.asByteBuffer().getInt();
-            Queue<Integer> nullQueue = null;
-            if (nullsAddress > 0) {
-                nullQueue = new ArrayDeque<>();
-                buffer.mark().position(nullsAddress);
-                int index;
-                while ((index = (int) buffer.getUnsignedVarint()) != 0)
-                    nullQueue.add(index);
-                buffer.reset().unmark();
-            }
-
+            boolean containsNullKey = buffer.getBoolean();
+            boolean containsNullValue = buffer.getBoolean();
             for (int i = 1; i <= size; i++) {
                 Class<?> type = keyType;
-                if (!isKeyFinal)
-                    type = serializer.registry().readClass(buffer, type);
-                Object key = serializer.deserialize(buffer, type);
+                if (!isFinalKeyType || containsNullKey)
+                    type = registry.readClass(buffer, type);
+                Object key = null;
+                if (type != Map.class)
+                    key = serializer.deserialize(buffer, type, null);
 
-                if (nullQueue != null && !nullQueue.isEmpty() && nullQueue.peek() == i) {
-                    map.put(key, null);
-                    nullQueue.remove();
-                } else {
-                    type = valueType;
-                    if (!isValueFinal)
-                        type = serializer.registry().readClass(buffer, valueType);
-                    map.put(key, serializer.deserialize(buffer, type));
-                }
+                type = valueType;
+                if (!isFinalValueType || containsNullValue)
+                    type = registry.readClass(buffer, type);
+                Object value = null;
+                if (type != Map.class)
+                    value = serializer.deserialize(buffer, type, null);
+                map.put(key, value);
             }
             return map;
         } catch (RuntimeException e) {

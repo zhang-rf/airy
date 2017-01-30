@@ -28,7 +28,7 @@ public class AppTest {
         serializer.handlerChain().appendHandler(new StringHandler());
         serializer.handlerChain().appendHandler(new EnumHandler());
         serializer.handlerChain().appendHandler(new BytesHandler());
-        serializer.handlerChain().appendHandler(new ArrayHandler(serializer));
+        serializer.handlerChain().appendHandler(new ArrayHandler(serializer, registry));
         serializer.handlerChain().appendHandler(new CollectionHandler(serializer));
         serializer.handlerChain().appendHandler(new MapHandler(serializer));
         serializer.handlerChain().appendHandler(new DateHandler());
