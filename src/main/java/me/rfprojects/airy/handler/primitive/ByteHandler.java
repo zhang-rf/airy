@@ -14,11 +14,11 @@ public class ByteHandler implements Handler {
 
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
-        buffer.putVarint((byte) object);
+        buffer.asByteBuffer().put((byte) object);
     }
 
     @Override
     public Object read(NioBuffer buffer, Class<?> reference, Type... generics) {
-        return (byte) buffer.getVarint();
+        return buffer.asByteBuffer().get();
     }
 }

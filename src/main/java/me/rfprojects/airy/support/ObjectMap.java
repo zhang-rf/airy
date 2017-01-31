@@ -1,8 +1,17 @@
 package me.rfprojects.airy.support;
 
+import me.rfprojects.airy.core.ClassRegistry;
 import me.rfprojects.airy.core.NioBuffer;
+import me.rfprojects.airy.handler.*;
+import me.rfprojects.airy.handler.chain.HandlerChain;
+import me.rfprojects.airy.handler.chain.SimpleHandlerChain;
+import me.rfprojects.airy.handler.primitive.*;
+import me.rfprojects.airy.internal.Null;
+import me.rfprojects.airy.serializer.HashSerializer;
+import me.rfprojects.airy.serializer.Serializer;
 import me.rfprojects.airy.serializer.StructuredSerializer;
 
+import java.lang.reflect.Field;
 import java.util.*;
 
 public class ObjectMap implements Map<String, Object> {
@@ -15,7 +24,18 @@ public class ObjectMap implements Map<String, Object> {
     private Map<String, Object> map;
 
     public ObjectMap(byte[] data) {
-        this(data, null, null);
+        this(data, (Class<?>) null);
+    }
+
+    public ObjectMap(byte[] data, Class<?> type) {
+        this.data = Objects.requireNonNull(data);
+        ClassRegistry registry = new ClassRegistry();
+        HandlerChain handlerChain = new SimpleHandlerChain();
+        StructuredSerializer serializer = new HashSerializer();
+        serializer.initialize(registry, handlerChain);
+        appendDefaultHandlers(handlerChain, registry, serializer);
+        this.serializer = serializer;
+        this.type = type;
     }
 
     public ObjectMap(byte[] data, StructuredSerializer serializer) {
@@ -28,12 +48,29 @@ public class ObjectMap implements Map<String, Object> {
         this.type = type;
     }
 
-    public StructuredSerializer getSerializer() {
-        return serializer;
-    }
+    private void appendDefaultHandlers(HandlerChain handlerChain, ClassRegistry registry, Serializer serializer) {
+        handlerChain.appendHandler(new BooleanHandler());
+        handlerChain.appendHandler(new CharacterHandler());
+        handlerChain.appendHandler(new ByteHandler());
+        handlerChain.appendHandler(new ShortHandler());
+        handlerChain.appendHandler(new IntegerHandler());
+        handlerChain.appendHandler(new LongHandler());
+        handlerChain.appendHandler(new FloatHandler());
+        handlerChain.appendHandler(new DoubleHandler());
 
-    public void setSerializer(StructuredSerializer serializer) {
-        this.serializer = serializer;
+        handlerChain.appendHandler(new StringHandler());
+        handlerChain.appendHandler(new EnumHandler());
+        handlerChain.appendHandler(new BytesHandler());
+        handlerChain.appendHandler(new ArrayHandler(registry, serializer));
+        handlerChain.appendHandler(new CollectionHandler(registry, serializer));
+        handlerChain.appendHandler(new MapHandler(registry, serializer));
+
+        handlerChain.appendHandler(new BigIntegerHandler());
+        handlerChain.appendHandler(new BigDecimalHandler());
+        handlerChain.appendHandler(new DateHandler());
+        handlerChain.appendHandler(new TimeZoneHandler());
+        handlerChain.appendHandler(new CalendarHandler());
+        handlerChain.appendHandler(new UrlHandler());
     }
 
     protected byte[] getData() {
@@ -58,14 +95,36 @@ public class ObjectMap implements Map<String, Object> {
         try {
             if (value == null) {
                 Class<?> type = this.type;
+                StructuredSerializer.FieldAccessor[] accessors = serializer.getAccessors(buffer, type);
+                String prefix = "";
                 String[] fieldNames = ((String) key).split("\\.");
-                StructuredSerializer.FieldAccessor accessor = null;
                 for (String fieldName : fieldNames) {
-                    accessor = serializer.getAccessor(buffer(), type, fieldName);
-                    type = accessor.getField().getType();
-                    buffer().position(accessor.getAddress());
+                    StructuredSerializer.FieldAccessor theAccessor = null;
+                    for (StructuredSerializer.FieldAccessor accessor : accessors) {
+                        Field field = accessor.getField();
+                        String name = field.getName();
+                        map().put(prefix + name, accessor);
+                        if (name.equals(fieldName)) {
+                            theAccessor = accessor;
+                            prefix += fieldName + '.';
+                        }
+                    }
+                    if (theAccessor == null)
+                        return null;
+                    else {
+                        type = theAccessor.getField().getType();
+                        int address = theAccessor.getAddress();
+                        if (address < 0)
+                            return Null.get(type);
+                        buffer().position(address);
+                        accessors = serializer.getAccessors(buffer, type);
+                    }
                 }
-                put((String) key, value = accessor.accessValue(buffer()));
+                value = map().get(key);
+            }
+            if (value instanceof StructuredSerializer.FieldAccessor) {
+                value = ((StructuredSerializer.FieldAccessor) value).accessValue(buffer);
+                map().put((String) key, value);
             }
             return value;
         } catch (RuntimeException e) {

@@ -2,7 +2,6 @@ package me.rfprojects.airy.handler.chain;
 
 import me.rfprojects.airy.core.NioBuffer;
 import me.rfprojects.airy.handler.Handler;
-import me.rfprojects.airy.handler.HandlerUnavailableException;
 
 import java.lang.reflect.Type;
 import java.util.Set;
@@ -17,7 +16,7 @@ public class SimpleHandlerChain implements HandlerChain {
     private ThreadLocal<Handler> currentHandler = new ThreadLocal<Handler>() {
         @Override
         protected Handler initialValue() {
-            throw new HandlerUnavailableException();
+            throw new UnsupportedOperationException();
         }
     };
 
@@ -63,15 +62,11 @@ public class SimpleHandlerChain implements HandlerChain {
 
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
-        Handler handler = currentHandler.get();
-        currentHandler.remove();
-        handler.write(buffer, object, reference, generics);
+        currentHandler.get().write(buffer, object, reference, generics);
     }
 
     @Override
     public Object read(NioBuffer buffer, Class<?> reference, Type... generics) {
-        Handler handler = currentHandler.get();
-        currentHandler.remove();
-        return handler.read(buffer, reference, generics);
+        return currentHandler.get().read(buffer, reference, generics);
     }
 }

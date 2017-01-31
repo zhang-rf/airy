@@ -14,7 +14,7 @@ public class BooleanHandler implements Handler {
 
     @Override
     public void write(NioBuffer buffer, Object object, Class<?> reference, Type... generics) {
-        buffer.putBoolean((Boolean) object);
+        buffer.putBoolean((boolean) object);
     }
 
     @Override

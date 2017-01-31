@@ -1,19 +1,13 @@
 package me.rfprojects.airy.serializer;
 
 import me.rfprojects.airy.core.AiryException;
-import me.rfprojects.airy.core.ClassRegistry;
 import me.rfprojects.airy.core.NioBuffer;
-import me.rfprojects.airy.handler.chain.HandlerChain;
 import me.rfprojects.airy.internal.Null;
 import me.rfprojects.airy.internal.ReflectionUtils;
 
 import java.lang.reflect.Field;
 
 public abstract class AbstractStructuredSerializer extends AbstractSerializer implements StructuredSerializer {
-
-    public AbstractStructuredSerializer(ClassRegistry registry, HandlerChain handlerChain) {
-        super(registry, handlerChain);
-    }
 
     @Override
     public FieldAccessor getAccessor(NioBuffer buffer, Class<?> type, String name) {

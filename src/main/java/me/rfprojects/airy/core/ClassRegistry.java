@@ -29,6 +29,15 @@ public class ClassRegistry {
         classList.add(Object.class);
         classList.add(Enum.class);
 
+        classList.add(boolean.class);
+        classList.add(char.class);
+        classList.add(byte.class);
+        classList.add(short.class);
+        classList.add(int.class);
+        classList.add(long.class);
+        classList.add(float.class);
+        classList.add(double.class);
+
         classList.add(boolean[].class);
         classList.add(char[].class);
         classList.add(byte[].class);

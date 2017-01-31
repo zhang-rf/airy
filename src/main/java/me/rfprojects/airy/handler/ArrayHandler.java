@@ -9,6 +9,7 @@ import me.rfprojects.airy.serializer.Serializer;
 import java.lang.reflect.Array;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
+import java.util.Objects;
 
 public class ArrayHandler implements Handler {
 
@@ -65,7 +66,7 @@ public class ArrayHandler implements Handler {
                     indexer = deepIterate(buffer, subArray, indexer, componentType);
             } else {
                 Object value = Array.get(array, i);
-                if (value != Null.get(componentType)) {
+                if (!Objects.equals(value, Null.get(componentType))) {
                     buffer.putUnsignedVarint(indexer);
                     if (!isFinal) {
                         Class<?> type = value.getClass();

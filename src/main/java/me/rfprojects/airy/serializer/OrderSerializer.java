@@ -15,9 +15,10 @@ public class OrderSerializer extends AbstractReferencedStructuredSerializer impl
 
     private ClassRegistry registry;
 
-    public OrderSerializer(ClassRegistry registry, HandlerChain handlerChain) {
-        super(registry, handlerChain);
+    @Override
+    public boolean initialize(ClassRegistry registry, HandlerChain handlerChain) {
         this.registry = registry;
+        return super.initialize(registry, handlerChain);
     }
 
     @Override
@@ -35,7 +36,7 @@ public class OrderSerializer extends AbstractReferencedStructuredSerializer impl
                     field.setAccessible(true);
                 Class<?> type = field.getType();
                 Object value = field.get(object);
-                if (value == Null.get(type))
+                if ((Objects.equals(value, Null.get(type))))
                     addressDeque.push(0);
                 else {
                     if (objectMap.containsKey(value))

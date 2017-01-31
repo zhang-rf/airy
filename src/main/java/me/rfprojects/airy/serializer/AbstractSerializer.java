@@ -11,20 +11,29 @@ public abstract class AbstractSerializer implements Serializer {
 
     private ClassRegistry registry;
     private HandlerChain handlerChain;
+    private boolean initialized;
     private ThreadLocal<Boolean> sRecursionFlag = new ThreadLocal<>();
     private ThreadLocal<Boolean> desRecursionFlag = new ThreadLocal<>();
-
-    public AbstractSerializer(ClassRegistry registry, HandlerChain handlerChain) {
-        this.registry = Objects.requireNonNull(registry);
-        this.handlerChain = Objects.requireNonNull(handlerChain);
-    }
 
     protected abstract void writeObject(NioBuffer buffer, Object object, Class<?> reference, Type... generics);
 
     protected abstract Object readObject(NioBuffer buffer, Class<?> type, Class<?> reference, Type... generics);
 
     @Override
+    public boolean initialize(ClassRegistry registry, HandlerChain handlerChain) {
+        if (!initialized) {
+            this.registry = Objects.requireNonNull(registry);
+            this.handlerChain = Objects.requireNonNull(handlerChain);
+            initialized = true;
+            return true;
+        }
+        return false;
+    }
+
+    @Override
     public void serialize(NioBuffer buffer, Object object, boolean writeClass, Class<?> reference, Type... generics) {
+        if (!initialized)
+            throw new NotInitializedException();
         if (sRecursionFlag.get() != Boolean.TRUE)
             serialize$Surface(buffer, object, writeClass, reference, generics);
         else
@@ -62,11 +71,14 @@ public abstract class AbstractSerializer implements Serializer {
         }
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public Object deserialize(NioBuffer buffer, Class<?> type, Class<?> reference, Type... generics) {
+    public <T> T deserialize(NioBuffer buffer, Class<T> type, Class<?> reference, Type... generics) {
+        if (!initialized)
+            throw new NotInitializedException();
         if (desRecursionFlag.get() != Boolean.TRUE)
-            return deserialize$Surface(buffer, type, reference, generics);
-        return deserialize$Recursion(buffer, type, reference, generics);
+            return (T) deserialize$Surface(buffer, type, reference, generics);
+        return (T) deserialize$Recursion(buffer, type, reference, generics);
     }
 
     protected Object deserialize$Surface(NioBuffer buffer, Class<?> type, Class<?> reference, Type... generics) {

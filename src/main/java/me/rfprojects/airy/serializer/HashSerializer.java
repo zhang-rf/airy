@@ -9,18 +9,16 @@ import me.rfprojects.airy.internal.ReflectionUtils;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class HashSerializer extends AbstractReferencedStructuredSerializer implements StructuredSerializer {
 
     private ClassRegistry registry;
 
-    public HashSerializer(ClassRegistry registry, HandlerChain handlerChain) {
-        super(registry, handlerChain);
+    @Override
+    public boolean initialize(ClassRegistry registry, HandlerChain handlerChain) {
         this.registry = registry;
+        return super.initialize(registry, handlerChain);
     }
 
     @Override
@@ -46,7 +44,7 @@ public class HashSerializer extends AbstractReferencedStructuredSerializer imple
                         field.setAccessible(true);
                     Class<?> type = field.getType();
                     Object value = field.get(object);
-                    if (value != Null.get(type)) {
+                    if (!(Objects.equals(value, Null.get(type)))) {
                         if (objectMap.containsKey(value))
                             fieldAddressMap.put(field, -objectMap.get(value));
                         else {

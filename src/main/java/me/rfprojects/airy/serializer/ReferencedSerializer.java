@@ -1,8 +1,6 @@
 package me.rfprojects.airy.serializer;
 
-import me.rfprojects.airy.core.ClassRegistry;
 import me.rfprojects.airy.core.NioBuffer;
-import me.rfprojects.airy.handler.chain.HandlerChain;
 import me.rfprojects.airy.util.ThreadLocalReference;
 
 import java.lang.ref.Reference;
@@ -15,10 +13,6 @@ public abstract class ReferencedSerializer extends AbstractSerializer {
 
     private ThreadLocalReference<Map<Object, Integer>> objectMapReference = new IdentityHashMapTLSR<>();
     private ThreadLocalReference<Map<Integer, Object>> addressMapReference = new IdentityHashMapTLSR<>();
-
-    public ReferencedSerializer(ClassRegistry registry, HandlerChain handlerChain) {
-        super(registry, handlerChain);
-    }
 
     @Override
     protected void serialize$Surface(NioBuffer buffer, Object object, boolean writeClass, Class<?> reference, Type... generics) {
