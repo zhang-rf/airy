@@ -5,6 +5,7 @@ import me.rfprojects.airy.core.NioBuffer;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.Objects;
 
 public class BigDecimalHandler implements Handler {
 
@@ -18,7 +19,8 @@ public class BigDecimalHandler implements Handler {
         BigDecimal bigDecimal = (BigDecimal) object;
         byte[] bytes = bigDecimal.unscaledValue().toByteArray();
         buffer.putUnsignedVarint(bytes.length).asByteBuffer().put(bytes);
-        buffer.putVarint(bigDecimal.scale());
+        if (!Objects.equals(bigDecimal, BigDecimal.ZERO) && !Objects.equals(bigDecimal, BigDecimal.ONE) && !Objects.equals(bigDecimal, BigDecimal.TEN))
+            buffer.putVarint(bigDecimal.scale());
     }
 
     @Override
@@ -28,13 +30,10 @@ public class BigDecimalHandler implements Handler {
         if (bytes.length == 1) {
             switch (bytes[0]) {
                 case 0:
-                    buffer.skip();
                     return BigDecimal.ZERO;
                 case 1:
-                    buffer.skip();
                     return BigDecimal.ONE;
                 case 10:
-                    buffer.skip();
                     return BigDecimal.TEN;
             }
         }

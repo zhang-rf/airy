@@ -40,33 +40,36 @@ public class MapHandler implements Handler {
 
         Map<?, ?> map = (Map) object;
         registry.writeClass(buffer, map.getClass());
-        buffer.putUnsignedVarint(map.size());
+        int size = map.size();
+        buffer.putUnsignedVarint(size);
 
-        boolean containsNullKey = map.containsKey(null);
-        boolean containsNullValue = map.containsValue(null);
-        buffer.putBoolean(containsNullKey);
-        buffer.putBoolean(containsNullValue);
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
-            Object key = entry.getKey();
-            if (key == null)
-                registry.writeClass(buffer, Map.class);
-            else {
-                if (!isFinalKeyType || containsNullKey) {
-                    Class<?> type = key.getClass();
-                    registry.writeClass(buffer, type != keyType ? type : null);
+        if (size != 0) {
+            boolean containsNullKey = map.containsKey(null);
+            boolean containsNullValue = map.containsValue(null);
+            buffer.putBoolean(containsNullKey);
+            buffer.putBoolean(containsNullValue);
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                Object key = entry.getKey();
+                if (key == null)
+                    registry.writeClass(buffer, Map.class);
+                else {
+                    if (!isFinalKeyType || containsNullKey) {
+                        Class<?> type = key.getClass();
+                        registry.writeClass(buffer, type != keyType ? type : null);
+                    }
+                    serializer.serialize(buffer, key, false, null);
                 }
-                serializer.serialize(buffer, key, false, null);
-            }
 
-            Object value = entry.getValue();
-            if (value == null)
-                registry.writeClass(buffer, Map.class);
-            else {
-                if (!isFinalValueType || containsNullValue) {
-                    Class<?> type = value.getClass();
-                    registry.writeClass(buffer, type != valueType ? type : null);
+                Object value = entry.getValue();
+                if (value == null)
+                    registry.writeClass(buffer, Map.class);
+                else {
+                    if (!isFinalValueType || containsNullValue) {
+                        Class<?> type = value.getClass();
+                        registry.writeClass(buffer, type != valueType ? type : null);
+                    }
+                    serializer.serialize(buffer, value, false, null);
                 }
-                serializer.serialize(buffer, value, false, null);
             }
         }
     }
@@ -97,23 +100,25 @@ public class MapHandler implements Handler {
                 map = (Map) mapType.newInstance();
             }
 
-            boolean containsNullKey = buffer.getBoolean();
-            boolean containsNullValue = buffer.getBoolean();
-            for (int i = 1; i <= size; i++) {
-                Class<?> type = keyType;
-                if (!isFinalKeyType || containsNullKey)
-                    type = registry.readClass(buffer, type);
-                Object key = null;
-                if (type != Map.class)
-                    key = serializer.deserialize(buffer, type, null);
+            if (size != 0) {
+                boolean containsNullKey = buffer.getBoolean();
+                boolean containsNullValue = buffer.getBoolean();
+                for (int i = 1; i <= size; i++) {
+                    Class<?> type = keyType;
+                    if (!isFinalKeyType || containsNullKey)
+                        type = registry.readClass(buffer, type);
+                    Object key = null;
+                    if (type != Map.class)
+                        key = serializer.deserialize(buffer, type, null);
 
-                type = valueType;
-                if (!isFinalValueType || containsNullValue)
-                    type = registry.readClass(buffer, type);
-                Object value = null;
-                if (type != Map.class)
-                    value = serializer.deserialize(buffer, type, null);
-                map.put(key, value);
+                    type = valueType;
+                    if (!isFinalValueType || containsNullValue)
+                        type = registry.readClass(buffer, type);
+                    Object value = null;
+                    if (type != Map.class)
+                        value = serializer.deserialize(buffer, type, null);
+                    map.put(key, value);
+                }
             }
             return map;
         } catch (RuntimeException e) {

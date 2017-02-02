@@ -103,8 +103,13 @@ public class ClassRegistry {
 
     public Class<?> readClass(NioBuffer buffer, Class<?> defaultClass) {
         try {
-            Class<?> type = findClass((int) buffer.getUnsignedVarint());
-            if (type == null) {
+            int id = (int) buffer.getUnsignedVarint();
+            Class<?> type;
+            if (id != 0) {
+                type = findClass(id);
+                if (type == null)
+                    throw new ClassNotFoundException();
+            } else {
                 type = defaultClass;
                 String className = buffer.getString().replaceAll("^#", "java.lang.");
                 if (!"".equals(className)) {

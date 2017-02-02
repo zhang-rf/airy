@@ -142,7 +142,7 @@ public class HashSerializer extends AbstractReferencedStructuredSerializer imple
             }
             for (Field field : fieldMap.values())
                 accessorList.add(new Accessor(field, -1));
-            return (FieldAccessor[]) accessorList.toArray();
+            return accessorList.toArray(new FieldAccessor[accessorList.size()]);
         } finally {
             buffer.reset().unmark();
         }

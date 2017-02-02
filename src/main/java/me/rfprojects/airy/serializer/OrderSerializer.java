@@ -121,7 +121,7 @@ public class OrderSerializer extends AbstractReferencedStructuredSerializer impl
                 accessorList.add(new Accessor(field, offset < 0 ? -1
                         : ((offset < headerAddress) ? (baseAddress + offset) : (offset - headerAddress))));
             }
-            return (FieldAccessor[]) accessorList.toArray();
+            return accessorList.toArray(new FieldAccessor[accessorList.size()]);
         } finally {
             buffer.reset().unmark();
         }

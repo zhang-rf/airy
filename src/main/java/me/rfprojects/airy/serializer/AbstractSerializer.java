@@ -62,11 +62,11 @@ public abstract class AbstractSerializer implements Serializer {
             } else if (handlerChain.supportsType(type)) {
                 if (writeClass)
                     registry.writeClass(buffer, type);
-                handlerChain.write(buffer, object, reference, generics);
+                handlerChain.write(buffer, object, type, generics);
             } else {
                 if (writeClass)
                     registry.writeClass(buffer, type != reference ? type : null);
-                writeObject(buffer, object, reference, generics);
+                writeObject(buffer, object, type, generics);
             }
         }
     }
@@ -101,9 +101,9 @@ public abstract class AbstractSerializer implements Serializer {
             if (type == Object.class)
                 return new Object();
             else if (handlerChain.supportsType(type))
-                return handlerChain.read(buffer, reference, generics);
+                return handlerChain.read(buffer, type, generics);
             else
-                return readObject(buffer, type, reference, generics);
+                return readObject(buffer, type, type, generics);
         }
     }
 }

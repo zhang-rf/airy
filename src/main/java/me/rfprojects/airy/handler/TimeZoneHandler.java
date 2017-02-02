@@ -9,7 +9,7 @@ public class TimeZoneHandler implements Handler {
 
     @Override
     public boolean supportsType(Class<?> type) {
-        return type == TimeZone.class;
+        return TimeZone.class.isAssignableFrom(type);
     }
 
     @Override

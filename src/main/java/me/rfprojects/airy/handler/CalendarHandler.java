@@ -14,7 +14,7 @@ public class CalendarHandler implements Handler {
 
     @Override
     public boolean supportsType(Class<?> type) {
-        return type == Calendar.class;
+        return Calendar.class.isAssignableFrom(type);
     }
 
     @Override
@@ -26,9 +26,9 @@ public class CalendarHandler implements Handler {
         buffer.putUnsignedVarint(calendar.getFirstDayOfWeek());
         buffer.putUnsignedVarint(calendar.getMinimalDaysInFirstWeek());
         if (object instanceof GregorianCalendar)
-            buffer.putUnsignedVarint(((GregorianCalendar) object).getGregorianChange().getTime());
+            buffer.putVarint(((GregorianCalendar) object).getGregorianChange().getTime());
         else
-            buffer.putUnsignedVarint(DEFAULT_GREGORIAN_CUTOVER);
+            buffer.putVarint(DEFAULT_GREGORIAN_CUTOVER);
     }
 
     @Override
@@ -38,7 +38,7 @@ public class CalendarHandler implements Handler {
         calendar.setLenient(buffer.getBoolean());
         calendar.setFirstDayOfWeek((int) buffer.getUnsignedVarint());
         calendar.setMinimalDaysInFirstWeek((int) buffer.getUnsignedVarint());
-        long gregorianChange = buffer.getUnsignedVarint();
+        long gregorianChange = buffer.getVarint();
         if (gregorianChange != DEFAULT_GREGORIAN_CUTOVER)
             if (calendar instanceof GregorianCalendar)
                 ((GregorianCalendar) calendar).setGregorianChange(new Date(gregorianChange));

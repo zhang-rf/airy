@@ -95,7 +95,7 @@ public class ObjectMap implements Map<String, Object> {
         try {
             if (value == null) {
                 Class<?> type = this.type;
-                StructuredSerializer.FieldAccessor[] accessors = serializer.getAccessors(buffer, type);
+                StructuredSerializer.FieldAccessor[] accessors = serializer.getAccessors(buffer(), type);
                 String prefix = "";
                 String[] fieldNames = ((String) key).split("\\.");
                 for (String fieldName : fieldNames) {
@@ -111,19 +111,20 @@ public class ObjectMap implements Map<String, Object> {
                     }
                     if (theAccessor == null)
                         return null;
+                    if (((String) key).endsWith(fieldName))
+                        value = theAccessor;
                     else {
                         type = theAccessor.getField().getType();
                         int address = theAccessor.getAddress();
                         if (address < 0)
                             return Null.get(type);
                         buffer().position(address);
-                        accessors = serializer.getAccessors(buffer, type);
+                        accessors = serializer.getAccessors(buffer(), type);
                     }
                 }
-                value = map().get(key);
             }
             if (value instanceof StructuredSerializer.FieldAccessor) {
-                value = ((StructuredSerializer.FieldAccessor) value).accessValue(buffer);
+                value = ((StructuredSerializer.FieldAccessor) value).accessValue(buffer());
                 map().put((String) key, value);
             }
             return value;

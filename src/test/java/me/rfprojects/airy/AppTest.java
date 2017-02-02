@@ -1,7 +1,9 @@
 package me.rfprojects.airy;
 
 import me.rfprojects.airy.serializer.Serializer;
+import me.rfprojects.airy.support.ConcurrentObjectMap;
 
+import java.net.MalformedURLException;
 import java.util.Arrays;
 
 public class AppTest {
@@ -11,11 +13,25 @@ public class AppTest {
     private Serializer serializer;
     private Me me;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws ClassNotFoundException, MalformedURLException {
         Airy airy = new Airy();
-        byte[] bytes = airy.serialize(new int[]{0, 1, 2});
+//        airy.registryClass(Bean.class);
+        byte[] bytes = airy.serialize(new Bean(new Bean()));
         System.out.println(Arrays.toString(bytes));
-        System.out.println(Arrays.toString(airy.deserialize(bytes, int[].class)));
+        System.out.println(new String(bytes));
+        System.out.println(airy.deserialize(bytes, null));
+        System.out.println(new ConcurrentObjectMap(bytes).get("a"));
+    }
+
+    static class Bean {
+        Object a;
+
+        public Bean() {
+        }
+
+        public Bean(Object a) {
+            this.a = a;
+        }
     }
 //    public AppTest() {
 //        serializer = new OrderSerializer();

@@ -34,19 +34,22 @@ public class CollectionHandler implements Handler {
 
         Collection<?> collection = (Collection<?>) object;
         registry.writeClass(buffer, collection.getClass());
-        buffer.putUnsignedVarint(collection.size());
+        int size = collection.size();
+        buffer.putUnsignedVarint(size);
 
-        boolean containsNull = collection.contains(null);
-        buffer.putBoolean(containsNull);
-        for (Object item : collection) {
-            if (item == null)
-                registry.writeClass(buffer, Collection.class);
-            else {
-                if (!isFinalType || containsNull) {
-                    Class<?> type = item.getClass();
-                    registry.writeClass(buffer, type != componentType ? type : null);
+        if (size != 0) {
+            boolean containsNull = collection.contains(null);
+            buffer.putBoolean(containsNull);
+            for (Object item : collection) {
+                if (item == null)
+                    registry.writeClass(buffer, Collection.class);
+                else {
+                    if (!isFinalType || containsNull) {
+                        Class<?> type = item.getClass();
+                        registry.writeClass(buffer, type != componentType ? type : null);
+                    }
+                    serializer.serialize(buffer, item, false, null);
                 }
-                serializer.serialize(buffer, item, false, null);
             }
         }
     }
@@ -71,12 +74,14 @@ public class CollectionHandler implements Handler {
                 collection = (Collection) collectionType.newInstance();
             }
 
-            boolean containsNull = buffer.getBoolean();
-            for (int i = 1; i <= size; i++) {
-                Class<?> type = componentType;
-                if (!isFinal || containsNull)
-                    type = registry.readClass(buffer, componentType);
-                collection.add(type != Collection.class ? serializer.deserialize(buffer, type, null) : null);
+            if (size != 0) {
+                boolean containsNull = buffer.getBoolean();
+                for (int i = 1; i <= size; i++) {
+                    Class<?> type = componentType;
+                    if (!isFinal || containsNull)
+                        type = registry.readClass(buffer, componentType);
+                    collection.add(type != Collection.class ? serializer.deserialize(buffer, type, null) : null);
+                }
             }
             return collection;
         } catch (RuntimeException e) {
