@@ -98,20 +98,20 @@ public class ObjectMap implements Map<String, Object> {
                 StructuredSerializer.FieldAccessor[] accessors = serializer.getAccessors(buffer(), type);
                 String prefix = "";
                 String[] fieldNames = ((String) key).split("\\.");
-                for (String fieldName : fieldNames) {
+                for (int i = 0, length = fieldNames.length; i < length; i++) {
                     StructuredSerializer.FieldAccessor theAccessor = null;
                     for (StructuredSerializer.FieldAccessor accessor : accessors) {
                         Field field = accessor.getField();
                         String name = field.getName();
                         map().put(prefix + name, accessor);
-                        if (name.equals(fieldName)) {
+                        if (name.equals(fieldNames[i])) {
                             theAccessor = accessor;
-                            prefix += fieldName + '.';
+                            prefix += fieldNames[i] + '.';
                         }
                     }
                     if (theAccessor == null)
                         return null;
-                    if (((String) key).endsWith(fieldName))
+                    if (i == length - 1)
                         value = theAccessor;
                     else {
                         type = theAccessor.getField().getType();
@@ -125,7 +125,8 @@ public class ObjectMap implements Map<String, Object> {
             }
             if (value instanceof StructuredSerializer.FieldAccessor) {
                 value = ((StructuredSerializer.FieldAccessor) value).accessValue(buffer());
-                map().put((String) key, value);
+                if (value != null)
+                    map().put((String) key, value);
             }
             return value;
         } catch (RuntimeException e) {

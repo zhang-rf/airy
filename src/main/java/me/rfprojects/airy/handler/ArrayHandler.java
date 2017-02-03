@@ -45,6 +45,8 @@ public class ArrayHandler implements Handler {
         do {
             int length = Array.getLength(array);
             buffer.putUnsignedVarint(length);
+            if (length == 0)
+                return;
 
             for (int i = 0; i < length; i++) {
                 array = Array.get(array, i);
@@ -83,7 +85,7 @@ public class ArrayHandler implements Handler {
     public Object read(NioBuffer buffer, Class<?> reference, Type... generics) {
         boolean isArrayReference = ReflectionUtils.isArray(reference);
         Class<?> componentType = ReflectionUtils.getComponentType(reference);
-        if (reference == null || !isArrayReference || (!reference.isPrimitive() && !Modifier.isFinal(reference.getModifiers())))
+        if (reference == null || !isArrayReference || (!componentType.isPrimitive() && !Modifier.isFinal(componentType.getModifiers())))
             componentType = registry.readClass(buffer, componentType);
 
         int dimension = 1;
@@ -97,12 +99,14 @@ public class ArrayHandler implements Handler {
         for (int i = 0; i < dimension; i++)
             dimensions[i] = (int) buffer.getUnsignedVarint();
 
-        int indexer;
         Object array = Array.newInstance(componentType, dimensions);
-        boolean isFinal = componentType.isPrimitive() || Modifier.isFinal(componentType.getModifiers());
-        while ((indexer = (int) buffer.getUnsignedVarint()) > 0) {
-            Class<?> type = isFinal ? componentType : registry.readClass(buffer, componentType);
-            setArray(array, dimensions, indexer, serializer.deserialize(buffer, type, null));
+        if (dimensions[0] != 0) {
+            boolean isFinal = componentType.isPrimitive() || Modifier.isFinal(componentType.getModifiers());
+            int indexer;
+            while ((indexer = (int) buffer.getUnsignedVarint()) > 0) {
+                Class<?> type = isFinal ? componentType : registry.readClass(buffer, componentType);
+                setArray(array, dimensions, indexer, serializer.deserialize(buffer, type, null));
+            }
         }
         return array;
     }

@@ -30,20 +30,20 @@ public class OrderSerializer extends AbstractReferencedStructuredSerializer impl
             buffer.mark().skip(4);
             int baseAddress = buffer.position();
             List<Field> fieldList = getFieldList(object.getClass());
-            Deque<Integer> addressDeque = new ArrayDeque<>(fieldList.size());
+            Queue<Integer> addressDeque = new ArrayDeque<>(fieldList.size());
             for (Field field : fieldList) {
                 if (!field.isAccessible())
                     field.setAccessible(true);
                 Class<?> type = field.getType();
                 Object value = field.get(object);
                 if ((Objects.equals(value, Null.get(type))))
-                    addressDeque.push(0);
+                    addressDeque.offer(0);
                 else {
                     if (objectMap.containsKey(value))
-                        addressDeque.push(-objectMap.get(value));
+                        addressDeque.offer(-objectMap.get(value));
                     else {
                         int address = buffer.position();
-                        addressDeque.push(address);
+                        addressDeque.offer(address);
                         objectMap.put(value, address);
                         serialize(buffer, value, true, type, ReflectionUtils.getTypeArguments(field.getGenericType()));
                     }
@@ -51,7 +51,8 @@ public class OrderSerializer extends AbstractReferencedStructuredSerializer impl
             }
             int headerAddress = buffer.position();
             buffer.reset().unmark().asByteBuffer().putInt(headerAddress).position(headerAddress);
-            for (int address : addressDeque) {
+            while (!addressDeque.isEmpty()) {
+                int address = addressDeque.poll();
                 buffer.putUnsignedVarint(address == 0 ? 0
                         : ((address > 0 ? address - baseAddress : -address + headerAddress) + 1));
             }
@@ -134,7 +135,7 @@ public class OrderSerializer extends AbstractReferencedStructuredSerializer impl
             if (fieldList == null)
                 fieldList = new ArrayList<>(Math.max(fields.length, 10));
 
-            for (Field field : type.getDeclaredFields())
+            for (Field field : fields)
                 if (ReflectionUtils.isFieldSerializable(field))
                     fieldList.add(field);
         } while ((type = type.getSuperclass()) != Object.class);
