@@ -91,6 +91,15 @@ public final class NioBuffer implements Comparable<NioBuffer> {
         return this;
     }
 
+    public NioBuffer putBoolean(boolean value) {
+        byteBuffer.put((byte) (value ? 1 : 0));
+        return this;
+    }
+
+    public boolean getBoolean() {
+        return byteBuffer.get() == 1;
+    }
+
     public NioBuffer putUnsignedVarint(long value) {
         do {
             byte b = (byte) (value & 0x7f);

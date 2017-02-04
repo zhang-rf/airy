@@ -2,15 +2,15 @@ package me.rfprojects.airy.serializer;
 
 import me.rfprojects.airy.core.ClassRegistry;
 import me.rfprojects.airy.core.NioBuffer;
-import me.rfprojects.airy.resolver.chain.ResolverChain;
+import me.rfprojects.airy.handler.chain.HandlerChain;
+
+import java.lang.reflect.Type;
 
 public interface Serializer {
 
-    ClassRegistry getRegistry();
+    boolean initialize(ClassRegistry registry, HandlerChain handlerChain);
 
-    ResolverChain getResolverChain();
+    void serialize(NioBuffer buffer, Object object, boolean writeClass, Class<?> reference, Type... generics);
 
-    void serialize(NioBuffer buffer, Object object, boolean writeClass);
-
-    <T> T deserialize(NioBuffer buffer, Class<T> type);
+    <T> T deserialize(NioBuffer buffer, Class<T> type, Class<?> reference, Type... generics);
 }

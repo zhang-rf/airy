@@ -2,53 +2,32 @@ package me.rfprojects.airy.util;
 
 import java.lang.ref.Reference;
 
-public class ThreadLocalReference<T> {
+public abstract class ThreadLocalReference<T> {
 
-    private Class<? extends Reference> referenceType;
-    private Class<?> valueType;
-    private ThreadLocal<Reference<T>> threadLocalReference = new ThreadLocal<Reference<T>>() {
+    private ThreadLocal<Reference<? extends T>> reference = new ThreadLocal<Reference<? extends T>>() {
 
         @Override
-        protected Reference<T> initialValue() {
+        protected Reference<? extends T> initialValue() {
             return ThreadLocalReference.this.initialValue();
         }
     };
 
-    protected ThreadLocalReference() {
-    }
-
-    public ThreadLocalReference(Class<? extends Reference> referenceType, Class<?> valueType) {
-        this.referenceType = referenceType;
-        this.valueType = valueType;
-    }
-
-    @SuppressWarnings("unchecked")
-    protected Reference<T> initialValue() {
-        if (referenceType == null || valueType == null)
-            throw new AbstractMethodError();
-        try {
-            return referenceType.getConstructor(Object.class).newInstance(valueType.newInstance());
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
+    protected abstract Reference<? extends T> initialValue();
 
     public T get() {
-        T instance = threadLocalReference.get().get();
+        T instance = reference.get().get();
         if (instance == null) {
-            threadLocalReference.remove();
-            instance = threadLocalReference.get().get();
+            reference.remove();
+            instance = reference.get().get();
         }
         return instance;
     }
 
-    public void set(Reference<T> reference) {
-        threadLocalReference.set(reference);
+    public void set(Reference<? extends T> reference) {
+        this.reference.set(reference);
     }
 
     public void remove() {
-        threadLocalReference.remove();
+        reference.remove();
     }
 }
