@@ -37,13 +37,13 @@ OrderSerializer：以对象中字段的顺序作为序列化标识，序列化�
 ###Handler
 Each Handler focuses on one or few types of object serialization processes, it can improve efficiency and reduce the size of serialized data.
 
-每一个 Handler 都专注于一种或几种类型的对象的序列化过程，以提高效率，减小序列化数据的大小。
+You can write and append your own handler to handle your classes.
 
 |
 
-You can write and append your own handler to handle your classes.
-
 你也可以编写自己的 Handler 并把它附加到 Serializer 来提高性能。
+
+每一个 Handler 都专注于一种或几种类型的对象的序列化过程，以提高效率，减小序列化数据的大小。
 
 ####Default Handlers
 <table>
@@ -51,6 +51,7 @@ You can write and append your own handler to handle your classes.
   <tr><td>IntegerHandler</td><td>LongHandler</td><td>FloatHandler</td><td>DoubleHandler</td></tr>
   <tr><td>StringHandler</td><td>EnumHandler</td><td>BytesHandler</td><td>ArrayHandler</td></tr>
   <tr><td>CollectionHandler</td><td>MapHandler</td><td>BigIntegerHandler</td><td>BigDecimalHandler</td></tr>
+  <tr><td>DateHandler</td><td>TimeZoneHandler</td><td>CalenderHandler</td><td>UrlHandler</td></tr>
 </table>
 
 ###Class Registry
