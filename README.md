@@ -1,23 +1,13 @@
 A easy, fast, efficient and zero-dependence serialization framework.
 
-## Installation
-Airy is available on the [releases page](https://github.com/zhang-rf/airy/releases) and at Maven Central.
+一个简单，快速，高效，零依赖的序列化框架。
 
-### Integration with Maven
-```xml
-    <dependency>
-        <groupId>me.rfprojects</groupId>
-        <artifactId>airy</artifactId>
-        <version>1.0.3</version>
-    </dependency>
-```
+## Installation 安装
+Airy is available on the [releases page](https://github.com/zhang-rf/airy/releases).
 
-### Integration with Gradle
-```groovy
-    compile "me.rfprojects:airy:1.0.3"
-```
+Airy 可从 [releases page](https://github.com/zhang-rf/airy/releases) 获取。
 
-## Quickstart
+## Quickstart 快速上手
 ```java
     Airy airy = new Airy();
     byte[] data = airy.serialize(someBean);
@@ -25,21 +15,35 @@ Airy is available on the [releases page](https://github.com/zhang-rf/airy/releas
 ```
 Wasn't this process a piece of cake? The rest will detail the advanced usage of the framework.
 
-##Core Components
+是不是很简单？接下来将详细介绍框架的一些细节和高级用法。
+
+##Core Components 核心组成
 
 ###Serializer
-Serializer is main component that provides the complete serializing function, it can work without the other components but inefficient.
+Serializer is the core component that provides serialization function. in theory, the framework can work without other components but inefficient. We have HashSerializer and OrderSerializer available for now.
 
-We have HashSerializer and OrderSerializer available for now.
-
-HashSerializer: use the hashcode of each field as an identity (default serializer)
+HashSerializer: default serializer, use the hashcode of each field as an identity
 
 OrderSerializer: use the order of each field as an identity
 
+|
+
+Serializer 是 Airy 框架中提供序列化功能的核心组件，理论上只有 Serializer 框架也能工作，但那样将变得十分低效。可用的 Serializer 有 HashSerializer 和 OrderSerializer两种。
+
+HashSerializer：默认的 Serializer ，以对象中字段的Hashcode作为序列化标识，字段的数量以及顺序可以变更，保持向前向后兼容
+
+OrderSerializer：以对象中字段的顺序作为序列化标识，序列化的数据更小，但是字段的数量以及顺序不能变更
+
 ###Handler
-Each handler concentrates on the serializing process of one or few classes, it can optimize the efficiency of serialization.
+Each Handler focuses on one or few types of object serialization processes, it can improve efficiency and reduce the size of serialized data.
+
+每一个 Handler 都专注于一种或几种类型的对象的序列化过程，以提高效率，减小序列化数据的大小。
+
+|
 
 You can write and append your own handler to handle your classes.
+
+你也可以编写自己的 Handler 并把它附加到 Serializer 来提高性能。
 
 ####Default Handlers
 <table>
@@ -50,11 +54,15 @@ You can write and append your own handler to handle your classes.
 </table>
 
 ###Class Registry
-ClassRegistry can reduce the size of the serialized data by replacing classname with an identity number.
+ClassRegistry can reduce the size of the serialized data by assigning a ID to the registered class.
 
-We have already registered frequently used java classes by default, you can register your own classes to improve serialization efficiency.
+By default, most of the commonly used Java classes have been registered, and you can manually register your classes to improve efficiency.
 
-##Advanced Usage
+ClassRegistry 通过向被注册的类指派一个 ID 来减小序列化数据的字节大小。
+
+默认情况下，大部分常用的 Java 类已经被注册过了，你可以手动注册哪些还未被注册的待序列化的类来提高效率。
+
+##Advanced Usage 高级用法
 ```java
     Airy airy = new Airy(new OrderSerializer()); // use OrderSerializer instead of HashSerializer
     airy.registerClass(SomeBean.class); // register class to reduce the size of the serialized data
@@ -62,3 +70,12 @@ We have already registered frequently used java classes by default, you can regi
     byte[] data = airy.serialize(someBean);
     SomeBean object = (SomeBean) airy.deserialize(data); // or airy.deserialize(data, SomeBean.class);
 ```
+##Benchmark 跑分
+There is comparison with Java Serializable and Kryo in unit test, you can gitclone the code and run it to see the result.(Quietly tell you, Airy is the fastest in time and the smallest in size)
+
+单元测试中有与 Java Serializable 和 Kryo 的跑分对比，大家可以把代码git clone下来亲自测试。（悄悄告诉你，Airy 是最快并且数据最小的，嘿嘿。）
+
+##Issues 问题
+Welcome to ask questions and doubts in the [Issues](https://github.com/zhang-rf/airy/issues) page!
+
+欢迎在 [Issues](https://github.com/zhang-rf/airy/issues) 页面中提出遇到的问题和疑惑！
